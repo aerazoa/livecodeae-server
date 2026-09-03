@@ -365,33 +365,33 @@ io.on('connection', (socket) => {
 
   // 9. Canal de Voz Ligero VoIP (Feature 4)
   socket.on('voice-join', (data) => {
-    const { roomId } = data;
+    const { roomId, name, avatar, color } = data;
     const room = rooms.get(roomId);
     if (room && room.voiceEnabled !== false) {
-      if (!room.voiceUsers) room.voiceUsers = new Set();
-      room.voiceUsers.add(userId);
-      const list = Array.from(room.voiceUsers).map(id => ({
-        id,
-        name: room.users[id]?.name || 'Dev',
-        avatar: room.users[id]?.avatar || '',
-        color: room.users[id]?.color || '#38bdf8'
-      }));
+      if (!room.voiceMembers) room.voiceMembers = new Map();
+      const userName = name || room.users[userId]?.name || 'Dev';
+      const userAvatar = avatar || room.users[userId]?.avatar || '';
+      const userColor = color || room.users[userId]?.color || '#38bdf8';
+      room.voiceMembers.set(userId, {
+        id: userId,
+        name: userName,
+        avatar: userAvatar,
+        color: userColor
+      });
+      const list = Array.from(room.voiceMembers.values());
       io.to(roomId).emit('voice-presence-updated', list);
+      console.log(`[LivecodeAE Voice] ${userName} se unió al canal de voz en ${roomId} (${list.length} en voz)`);
     }
   });
 
   socket.on('voice-leave', (data) => {
     const { roomId } = data;
     const room = rooms.get(roomId);
-    if (room && room.voiceUsers) {
-      room.voiceUsers.delete(userId);
-      const list = Array.from(room.voiceUsers).map(id => ({
-        id,
-        name: room.users[id]?.name || 'Dev',
-        avatar: room.users[id]?.avatar || '',
-        color: room.users[id]?.color || '#38bdf8'
-      }));
+    if (room && room.voiceMembers) {
+      room.voiceMembers.delete(userId);
+      const list = Array.from(room.voiceMembers.values());
       io.to(roomId).emit('voice-presence-updated', list);
+      console.log(`[LivecodeAE Voice] Usuario salió del canal de voz en ${roomId} (${list.length} restantes)`);
     }
   });
 
@@ -424,6 +424,11 @@ io.on('connection', (socket) => {
     if (userRoomId && rooms.has(userRoomId)) {
       const room = rooms.get(userRoomId);
       const isHost = room.hostId === userId;
+
+      if (room.voiceMembers && room.voiceMembers.has(userId)) {
+        room.voiceMembers.delete(userId);
+        io.to(userRoomId).emit('voice-presence-updated', Array.from(room.voiceMembers.values()));
+      }
 
       delete room.users[userId];
 
