@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>LivecodeAE — Sala de Cámara y Voz en Vivo</title>
+  <title>LivecodeAE — Videollamada P2P Segura & Voz</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <style>
@@ -23,12 +23,12 @@
 
     header {
       width: 100%;
-      max-width: 960px;
+      max-width: 1100px;
       display: flex;
       align-items: center;
       justify-content: space-between;
       padding: 12px 20px;
-      background: rgba(24, 24, 27, 0.7);
+      background: rgba(24, 24, 27, 0.75);
       backdrop-filter: blur(12px);
       border: 1px solid rgba(255, 255, 255, 0.08);
       border-radius: 16px;
@@ -41,8 +41,13 @@
       gap: 10px;
       font-weight: 800;
       font-size: 16px;
-      letter-spacing: -0.5px;
       color: #38bdf8;
+    }
+
+    .header-center {
+      display: flex;
+      align-items: center;
+      gap: 10px;
     }
 
     .room-tag {
@@ -55,10 +60,23 @@
       font-weight: 700;
     }
 
-    .status-badge {
+    .security-badge {
       display: flex;
       align-items: center;
       gap: 6px;
+      background: rgba(34, 197, 94, 0.12);
+      color: #22c55e;
+      border: 1px solid rgba(34, 197, 94, 0.3);
+      padding: 4px 12px;
+      border-radius: 20px;
+      font-size: 11px;
+      font-weight: 600;
+    }
+
+    .status-badge {
+      display: flex;
+      align-items: center;
+      gap: 8px;
       font-size: 12px;
       color: #a1a1aa;
     }
@@ -66,19 +84,24 @@
       width: 8px;
       height: 8px;
       border-radius: 50%;
-      background: #ef4444;
+      background: #eab308;
+      box-shadow: 0 0 10px #eab308;
     }
     .status-dot.connected {
       background: #22c55e;
-      box-shadow: 0 0 10px #22c55e;
+      box-shadow: 0 0 12px #22c55e;
+    }
+    .status-dot.failed {
+      background: #ef4444;
+      box-shadow: 0 0 12px #ef4444;
     }
 
     main {
       width: 100%;
-      max-width: 960px;
+      max-width: 1100px;
       flex: 1;
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+      grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
       gap: 16px;
       align-items: center;
       justify-content: center;
@@ -89,7 +112,7 @@
       width: 100%;
       aspect-ratio: 16 / 10;
       background: #18181b;
-      border: 2px solid rgba(255, 255, 255, 0.06);
+      border: 2px solid rgba(255, 255, 255, 0.08);
       border-radius: 20px;
       overflow: hidden;
       display: flex;
@@ -102,10 +125,10 @@
       width: 100%;
       height: 100%;
       object-fit: cover;
-      transform: scaleX(-1);
     }
-    .video-card.remote video {
-      transform: none;
+
+    .mirrored {
+      transform: scaleX(-1);
     }
 
     .placeholder {
@@ -116,6 +139,8 @@
       gap: 12px;
       color: #71717a;
       font-size: 13px;
+      text-align: center;
+      padding: 20px;
     }
     .placeholder-icon {
       font-size: 40px;
@@ -125,17 +150,18 @@
       position: absolute;
       bottom: 12px;
       left: 12px;
-      background: rgba(0, 0, 0, 0.7);
+      background: rgba(0, 0, 0, 0.75);
       backdrop-filter: blur(8px);
       color: #fff;
-      padding: 6px 12px;
-      border-radius: 10px;
+      padding: 6px 14px;
+      border-radius: 12px;
       font-size: 12px;
       font-weight: 600;
       display: flex;
       align-items: center;
-      gap: 6px;
-      border: 1px solid rgba(255, 255, 255, 0.1);
+      gap: 8px;
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      z-index: 5;
     }
 
     .mic-dot {
@@ -143,20 +169,54 @@
       height: 8px;
       border-radius: 50%;
       background: #22c55e;
+      box-shadow: 0 0 8px #22c55e;
     }
     .mic-dot.muted {
       background: #ef4444;
+      box-shadow: 0 0 8px #ef4444;
+    }
+
+    .connection-overlay {
+      position: absolute;
+      top: 12px;
+      right: 12px;
+      background: rgba(0, 0, 0, 0.7);
+      backdrop-filter: blur(8px);
+      padding: 4px 10px;
+      border-radius: 10px;
+      font-size: 11px;
+      color: #a1a1aa;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      z-index: 5;
+    }
+
+    /* Banner para desmutear si Chrome bloquea autoplay de audio */
+    #audioUnlockBanner {
+      display: none;
+      width: 100%;
+      max-width: 1100px;
+      background: linear-gradient(90deg, #f59e0b, #d97706);
+      color: #000;
+      padding: 10px 20px;
+      border-radius: 12px;
+      font-size: 12px;
+      font-weight: 700;
+      text-align: center;
+      margin-bottom: 12px;
+      cursor: pointer;
+      box-shadow: 0 4px 15px rgba(245, 158, 11, 0.4);
     }
 
     footer {
       width: 100%;
-      max-width: 960px;
+      max-width: 1100px;
       display: flex;
       align-items: center;
       justify-content: center;
       gap: 14px;
       padding: 16px;
       margin-top: 16px;
+      flex-wrap: wrap;
     }
 
     .btn-ctrl {
@@ -177,7 +237,7 @@
     .btn-primary {
       background: #27272a;
       color: #f4f4f5;
-      border: 1px solid rgba(255, 255, 255, 0.1);
+      border: 1px solid rgba(255, 255, 255, 0.12);
     }
     .btn-primary.active {
       background: #ef4444;
@@ -191,6 +251,14 @@
       background: #dc2626;
       color: #fff;
     }
+
+    .e2e-info {
+      font-size: 11px;
+      color: #71717a;
+      text-align: center;
+      width: 100%;
+      margin-top: 6px;
+    }
   </style>
   <script src="/socket.io/socket.io.js"></script>
 </head>
@@ -200,16 +268,26 @@
       <span>⚡ LivecodeAE</span>
       <span style="font-size: 12px; color: #71717a; font-weight: 500;">Cámara & Voz P2P</span>
     </div>
-    <div class="room-tag" id="roomLabel">Sala: ...</div>
+    <div class="header-center">
+      <div class="room-tag" id="roomLabel">Sala: ...</div>
+      <div class="security-badge" title="Cifrado DTLS-SRTP de extremo a extremo sin servidores intermedios">
+        🔒 E2EE Cifrado P2P
+      </div>
+    </div>
     <div class="status-badge">
       <span class="status-dot" id="statusDot"></span>
-      <span id="statusText">Conectando...</span>
+      <span id="statusText">Conectando señal...</span>
     </div>
   </header>
 
+  <div id="audioUnlockBanner" onclick="unlockAudio()">
+    🔊 Tu navegador silenció el audio entrante. Haz clic aquí para escuchar a tu compañero de equipo.
+  </div>
+
   <main>
+    <!-- Tu video local -->
     <div class="video-card">
-      <video id="localVideo" autoplay muted playsinline></video>
+      <video id="localVideo" class="mirrored" autoplay muted playsinline></video>
       <div id="localPlaceholder" class="placeholder">
         <span class="placeholder-icon">📷</span>
         <span>Tu cámara está apagada</span>
@@ -218,18 +296,21 @@
         <span class="mic-dot" id="localMicDot"></span>
         <span id="localNameLabel">Tú</span>
       </div>
+      <div class="connection-overlay" id="localResolution">Local HD</div>
     </div>
 
-    <div class="video-card remote">
+    <!-- Video remoto del compañero -->
+    <div class="video-card">
       <video id="remoteVideo" autoplay playsinline></video>
       <div id="remotePlaceholder" class="placeholder">
         <span class="placeholder-icon">⌛</span>
-        <span>Esperando al compañero de equipo...</span>
+        <span id="remoteStatusMsg">Esperando que tu compañero ingrese a la sala...</span>
       </div>
       <div class="user-tag">
         <span class="mic-dot" id="remoteMicDot"></span>
         <span id="remoteNameLabel">Compañero</span>
       </div>
+      <div class="connection-overlay" id="remoteP2PState">P2P: Esperando</div>
     </div>
   </main>
 
@@ -238,13 +319,15 @@
     <button class="btn-ctrl btn-primary" id="btnCam" onclick="toggleCam()">📹 Cámara ON</button>
     <button class="btn-ctrl btn-accent" id="btnShare" onclick="toggleShare()">🖥️ Compartir Pantalla</button>
     <button class="btn-ctrl btn-danger" onclick="hangup()">❌ Salir</button>
+    <div class="e2e-info">
+      🛡️ <b>Canal Cifrado DTLS / SRTP (AES-128/256):</b> La transmisión de voz y video fluye directo entre ambas computadoras sin intermediarios.
+    </div>
   </footer>
 
   <script>
-    const urlParams = new URLSearchParams(window.location.search);
-    const roomId = (urlParams.get('room') || 'DEFAULT').toUpperCase().trim();
-    const userName = urlParams.get('name') || 'Programador LivecodeAE';
-    const userAvatar = urlParams.get('avatar') || '';
+    const params = new URLSearchParams(window.location.search);
+    const roomId = (params.get('room') || 'GENERAL').toUpperCase().trim();
+    const userName = params.get('name') || 'Programador LivecodeAE';
 
     document.getElementById('roomLabel').innerText = 'Sala: ' + roomId;
     document.getElementById('localNameLabel').innerText = userName + ' (Tú)';
@@ -255,129 +338,277 @@
     let isCamOff = false;
     let isSharingScreen = false;
     let socket = null;
+    let remoteUserId = null;
 
+    // Cola de candidatos ICE para evitar el error "The remote description was null"
+    let iceCandidateQueue = [];
+
+    // Múltiples servidores STUN ultra-rápidos de Google y Cloudflare
     const rtcConfig = {
       iceServers: [
         { urls: 'stun:stun.l.google.com:19302' },
-        { urls: 'stun:stun1.l.google.com:19302' }
-      ]
+        { urls: 'stun:stun1.l.google.com:19302' },
+        { urls: 'stun:stun2.l.google.com:19302' },
+        { urls: 'stun:stun.cloudflare.com:3478' }
+      ],
+      iceCandidatePoolSize: 10
     };
 
     async function initMedia() {
       try {
         localStream = await navigator.mediaDevices.getUserMedia({
-          video: { width: { ideal: 640 }, height: { ideal: 480 }, frameRate: { max: 24 } },
-          audio: { echoCancellation: true, noiseSuppression: true }
+          video: {
+            width: { ideal: 640 },
+            height: { ideal: 480 },
+            frameRate: { ideal: 24, max: 30 }
+          },
+          audio: {
+            echoCancellation: true,
+            noiseSuppression: true,
+            autoGainControl: true
+          }
         });
 
         const localVideo = document.getElementById('localVideo');
         localVideo.srcObject = localStream;
         document.getElementById('localPlaceholder').style.display = 'none';
-
-        connectSocket();
       } catch (err) {
-        alert('Por favor autoriza los permisos de cámara y micrófono para iniciar la videollamada: ' + err.message);
-        connectSocket();
+        console.warn('[LivecodeAE] Permiso de cámara/mic no concedido o no disponible:', err);
+        document.getElementById('localPlaceholder').innerHTML = '<span style="color:#ef4444; font-weight:bold;">⚠️ Permiso no concedido</span><br><span style="font-size:11px;">Autoriza cámara/micrófono en el candado de la barra del navegador</span>';
       }
+
+      connectSocket();
     }
 
     function connectSocket() {
       socket = io();
 
       socket.on('connect', () => {
+        console.log('[LivecodeAE] Conectado al servidor de señalización. Socket ID:', socket.id);
         document.getElementById('statusDot').className = 'status-dot connected';
         document.getElementById('statusText').innerText = 'En Línea';
 
         socket.emit('join-room', {
           roomId,
-          name: userName,
-          avatar: userAvatar
+          name: userName
         });
       });
 
-      socket.on('user-joined', (user) => {
-        document.getElementById('remoteNameLabel').innerText = user.name || 'Compañero';
-        createOffer();
+      // Cuando el usuario entra y recibe el estado actual de la sala
+      socket.on('room-joined', (data) => {
+        console.log('[LivecodeAE] room-joined:', data);
+        const otherUsers = (data.users || []).filter(u => u.id !== socket.id);
+        if (otherUsers.length > 0) {
+          const peer = otherUsers[0];
+          remoteUserId = peer.id;
+          document.getElementById('remoteNameLabel').innerText = peer.name || 'Compañero';
+          document.getElementById('remoteStatusMsg').innerText = 'Conectando con ' + peer.name + '...';
+          // Si el compañero ya estaba en la sala antes que nosotros, le enviamos la oferta
+          startCall(remoteUserId);
+        }
       });
 
+      // Cuando un nuevo compañero se une después de nosotros
+      socket.on('user-joined', (user) => {
+        console.log('[LivecodeAE] user-joined:', user);
+        remoteUserId = user.id;
+        document.getElementById('remoteNameLabel').innerText = user.name || 'Compañero';
+        document.getElementById('remoteStatusMsg').innerText = 'Conectando con ' + user.name + '...';
+        startCall(remoteUserId);
+      });
+
+      // Recibir mensajes de señalización WebRTC (oferta, respuesta, candidatos)
       socket.on('webrtc-signal-received', async (data) => {
         const { senderUserId, signal } = data;
         if (!signal) return;
 
+        console.log('[LivecodeAE] Señal recibida de ' + senderUserId + ':', signal.type);
+
         if (signal.type === 'offer') {
-          await createAnswer(signal.sdp, senderUserId);
+          remoteUserId = senderUserId;
+          await handleOffer(signal.sdp, senderUserId);
         } else if (signal.type === 'answer') {
-          if (peerConnection) {
-            await peerConnection.setRemoteDescription(new RTCSessionDescription(signal.sdp));
-          }
+          await handleAnswer(signal.sdp);
         } else if (signal.type === 'candidate') {
-          if (peerConnection && signal.candidate) {
-            try {
-              await peerConnection.addIceCandidate(new RTCIceCandidate(signal.candidate));
-            } catch (e) {}
-          }
+          await handleCandidate(signal.candidate);
         } else if (signal.type === 'hangup') {
-          const remoteVideo = document.getElementById('remoteVideo');
-          remoteVideo.srcObject = null;
-          document.getElementById('remotePlaceholder').style.display = 'flex';
-          if (peerConnection) {
-            peerConnection.close();
-            peerConnection = null;
-          }
+          handleRemoteHangup();
+        }
+      });
+
+      socket.on('user-left', (leftUserId) => {
+        if (leftUserId === remoteUserId) {
+          handleRemoteHangup();
         }
       });
     }
 
-    function setupPeerConnection() {
+    function createPeerConnection(targetId) {
       if (peerConnection) return peerConnection;
+
+      console.log('[LivecodeAE] Creando RTCPeerConnection...');
       peerConnection = new RTCPeerConnection(rtcConfig);
 
+      // 1. Agregar pistas locales (Audio y Video)
       if (localStream) {
         localStream.getTracks().forEach(track => {
+          console.log('[LivecodeAE] Añadiendo pista local:', track.kind);
           peerConnection.addTrack(track, localStream);
         });
       }
 
+      // 2. Manejo de candidatos ICE locales
       peerConnection.onicecandidate = (event) => {
         if (event.candidate && socket) {
           socket.emit('webrtc-signal', {
             roomId,
+            targetUserId: targetId || remoteUserId,
             signal: { type: 'candidate', candidate: event.candidate }
           });
         }
       };
 
+      // 3. Monitoreo de estado de conexión P2P
+      peerConnection.onconnectionstatechange = () => {
+        const state = peerConnection.connectionState;
+        console.log('[LivecodeAE] Estado de conexión P2P:', state);
+        const badge = document.getElementById('remoteP2PState');
+        if (state === 'connected') {
+          badge.innerText = '🟢 P2P Cifrado OK';
+          badge.style.color = '#22c55e';
+          document.getElementById('remotePlaceholder').style.display = 'none';
+        } else if (state === 'connecting') {
+          badge.innerText = '🟡 Estableciendo P2P...';
+          badge.style.color = '#eab308';
+        } else if (state === 'failed' || state === 'disconnected') {
+          badge.innerText = '🔴 Reconectando P2P...';
+          badge.style.color = '#ef4444';
+          // Reintentar si falla
+          if (state === 'failed') {
+            peerConnection.restartIce();
+          }
+        }
+      };
+
+      // 4. Recepción de pistas remotas (Video / Audio de tu compañero)
       peerConnection.ontrack = (event) => {
+        console.log('[LivecodeAE] ¡Pista remota recibida!', event.track.kind, event.streams);
         const remoteVideo = document.getElementById('remoteVideo');
-        remoteVideo.srcObject = event.streams[0];
+
+        if (event.streams && event.streams[0]) {
+          remoteVideo.srcObject = event.streams[0];
+        } else {
+          let stream = remoteVideo.srcObject;
+          if (!stream) {
+            stream = new MediaStream();
+            remoteVideo.srcObject = stream;
+          }
+          stream.addTrack(event.track);
+        }
+
         document.getElementById('remotePlaceholder').style.display = 'none';
+
+        // Reproducir video y verificar política de audio del navegador
+        remoteVideo.play().catch(err => {
+          console.warn('[LivecodeAE] Autoplay de audio bloqueado por el navegador:', err);
+          document.getElementById('audioUnlockBanner').style.display = 'block';
+        });
       };
 
       return peerConnection;
     }
 
-    async function createOffer() {
-      const pc = setupPeerConnection();
-      const offer = await pc.createOffer();
-      await pc.setLocalDescription(offer);
+    async function startCall(targetId) {
+      const pc = createPeerConnection(targetId);
+      try {
+        const offer = await pc.createOffer({
+          offerToReceiveAudio: true,
+          offerToReceiveVideo: true
+        });
+        await pc.setLocalDescription(offer);
+        console.log('[LivecodeAE] Enviando oferta a:', targetId);
 
-      socket.emit('webrtc-signal', {
-        roomId,
-        signal: { type: 'offer', sdp: offer }
-      });
+        socket.emit('webrtc-signal', {
+          roomId,
+          targetUserId: targetId,
+          signal: { type: 'offer', sdp: offer }
+        });
+      } catch (err) {
+        console.error('[LivecodeAE] Error en createOffer:', err);
+      }
     }
 
-    async function createAnswer(sdp, senderUserId) {
-      const pc = setupPeerConnection();
-      await pc.setRemoteDescription(new RTCSessionDescription(sdp));
-      const answer = await pc.createAnswer();
-      await pc.setLocalDescription(answer);
+    async function handleOffer(sdp, senderId) {
+      const pc = createPeerConnection(senderId);
+      try {
+        await pc.setRemoteDescription(new RTCSessionDescription(sdp));
+        // Procesar cualquier candidato ICE que haya llegado antes
+        await processQueuedCandidates();
 
-      socket.emit('webrtc-signal', {
-        roomId,
-        targetUserId: senderUserId,
-        signal: { type: 'answer', sdp: answer }
-      });
+        const answer = await pc.createAnswer();
+        await pc.setLocalDescription(answer);
+        console.log('[LivecodeAE] Enviando respuesta a:', senderId);
+
+        socket.emit('webrtc-signal', {
+          roomId,
+          targetUserId: senderId,
+          signal: { type: 'answer', sdp: answer }
+        });
+      } catch (err) {
+        console.error('[LivecodeAE] Error en handleOffer:', err);
+      }
+    }
+
+    async function handleAnswer(sdp) {
+      if (!peerConnection) return;
+      try {
+        await peerConnection.setRemoteDescription(new RTCSessionDescription(sdp));
+        // Procesar candidatos ICE en cola
+        await processQueuedCandidates();
+      } catch (err) {
+        console.error('[LivecodeAE] Error en handleAnswer:', err);
+      }
+    }
+
+    async function handleCandidate(candidate) {
+      if (!candidate) return;
+
+      if (peerConnection && peerConnection.remoteDescription && peerConnection.remoteDescription.type) {
+        try {
+          await peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
+        } catch (err) {
+          console.warn('[LivecodeAE] Error agregando candidato ICE:', err);
+        }
+      } else {
+        // Encolar candidato para cuando remoteDescription esté listo
+        iceCandidateQueue.push(candidate);
+      }
+    }
+
+    async function processQueuedCandidates() {
+      while (iceCandidateQueue.length > 0) {
+        const cand = iceCandidateQueue.shift();
+        try {
+          if (peerConnection) {
+            await peerConnection.addIceCandidate(new RTCIceCandidate(cand));
+          }
+        } catch (err) {
+          console.warn('[LivecodeAE] Error en candidato encolado:', err);
+        }
+      }
+    }
+
+    function handleRemoteHangup() {
+      const remoteVideo = document.getElementById('remoteVideo');
+      remoteVideo.srcObject = null;
+      document.getElementById('remotePlaceholder').style.display = 'flex';
+      document.getElementById('remoteStatusMsg').innerText = 'Tu compañero ha salido de la sala.';
+      document.getElementById('remoteP2PState').innerText = 'P2P: Desconectado';
+      if (peerConnection) {
+        peerConnection.close();
+        peerConnection = null;
+      }
+      iceCandidateQueue = [];
     }
 
     function toggleMic() {
@@ -409,34 +640,61 @@
     async function toggleShare() {
       if (!isSharingScreen) {
         try {
-          const screenStream = await navigator.mediaDevices.getDisplayMedia({ video: true });
+          const screenStream = await navigator.mediaDevices.getDisplayMedia({
+            video: { cursor: 'always' },
+            audio: false
+          });
           const screenTrack = screenStream.getVideoTracks()[0];
 
           if (peerConnection) {
-            const sender = peerConnection.getSenders().find(s => s.track.kind === 'video');
-            if (sender) sender.replaceTrack(screenTrack);
+            const senders = peerConnection.getSenders();
+            const videoSender = senders.find(s => s.track && s.track.kind === 'video') || senders.find(s => !s.track);
+            if (videoSender) {
+              await videoSender.replaceTrack(screenTrack);
+            }
           }
 
-          document.getElementById('localVideo').srcObject = screenStream;
+          const localVideo = document.getElementById('localVideo');
+          localVideo.srcObject = screenStream;
+          localVideo.classList.remove('mirrored'); // La pantalla compartida NO debe estar en espejo
           isSharingScreen = true;
           document.getElementById('btnShare').innerText = '🛑 Detener Pantalla';
+          document.getElementById('btnShare').className = 'btn-ctrl btn-danger';
 
           screenTrack.onended = () => stopScreenShare();
-        } catch (e) {}
+        } catch (e) {
+          console.warn('[LivecodeAE] Error al compartir pantalla:', e);
+        }
       } else {
         stopScreenShare();
       }
     }
 
-    function stopScreenShare() {
-      if (localStream && peerConnection) {
+    async function stopScreenShare() {
+      if (localStream) {
         const videoTrack = localStream.getVideoTracks()[0];
-        const sender = peerConnection.getSenders().find(s => s.track.kind === 'video');
-        if (sender && videoTrack) sender.replaceTrack(videoTrack);
-        document.getElementById('localVideo').srcObject = localStream;
+        if (peerConnection && videoTrack) {
+          const senders = peerConnection.getSenders();
+          const videoSender = senders.find(s => s.track && s.track.kind === 'video') || senders.find(s => !s.track);
+          if (videoSender) {
+            await videoSender.replaceTrack(videoTrack);
+          }
+        }
+        const localVideo = document.getElementById('localVideo');
+        localVideo.srcObject = localStream;
+        localVideo.classList.add('mirrored'); // Volver a activar espejo para la cámara
       }
       isSharingScreen = false;
-      document.getElementById('btnShare').innerText = '🖥️ Compartir Pantalla';
+      const btn = document.getElementById('btnShare');
+      btn.innerText = '🖥️ Compartir Pantalla';
+      btn.className = 'btn-ctrl btn-accent';
+    }
+
+    function unlockAudio() {
+      const remoteVideo = document.getElementById('remoteVideo');
+      remoteVideo.muted = false;
+      remoteVideo.play();
+      document.getElementById('audioUnlockBanner').style.display = 'none';
     }
 
     function hangup() {
@@ -447,7 +705,11 @@
         peerConnection.close();
       }
       if (socket) {
-        socket.emit('webrtc-signal', { roomId, signal: { type: 'hangup' } });
+        socket.emit('webrtc-signal', {
+          roomId,
+          targetUserId: remoteUserId,
+          signal: { type: 'hangup' }
+        });
       }
       window.close();
     }
