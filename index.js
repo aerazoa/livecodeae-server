@@ -96,7 +96,12 @@ io.on('connection', (socket) => {
         users: {},
         files: hasFiles ? data.initialFiles : {},
         hostId: userId,
-        callStarted: false
+        readonlyForAllGuests: false,
+        userPermissions: {}, // userId -> boolean (true = readonly, false = editor)
+        voiceEnabled: true,
+        whiteboardEnabled: true,
+        whiteboardStrokes: [],
+        voiceUsers: new Set()
       });
       colorIndex.set(roomId, 0);
     }
@@ -120,7 +125,9 @@ io.on('connection', (socket) => {
       currentFile: Object.keys(room.files)[0] || 'index.html',
       line: 1,
       col: 1,
-      selections: []
+      selections: [],
+      isHost: room.hostId === userId,
+      isReadOnly: room.hostId !== userId && (room.readonlyForAllGuests || room.userPermissions[userId] === true)
     };
 
     room.users[userId] = presence;
@@ -132,7 +139,13 @@ io.on('connection', (socket) => {
       roomState: {
         id: room.id,
         users: room.users,
-        files: room.files
+        files: room.files,
+        hostId: room.hostId,
+        readonlyForAllGuests: room.readonlyForAllGuests || false,
+        userPermissions: room.userPermissions || {},
+        voiceEnabled: room.voiceEnabled !== false,
+        whiteboardEnabled: room.whiteboardEnabled !== false,
+        whiteboardStrokes: room.whiteboardStrokes || []
       }
     });
 
@@ -163,6 +176,7 @@ io.on('connection', (socket) => {
       const room = rooms.get(roomId);
       const isHost = room.hostId === userId;
 
+      if (room.voiceUsers) room.voiceUsers.delete(userId);
       delete room.users[userId];
       socket.leave(roomId);
 
@@ -174,15 +188,31 @@ io.on('connection', (socket) => {
       } else {
         socket.to(roomId).emit('user-left', userId);
         io.to(roomId).emit('room-presence-updated', Object.values(room.users));
+        if (room.voiceUsers) {
+          io.to(roomId).emit('voice-presence-updated', Array.from(room.voiceUsers).map(id => ({
+            id,
+            name: room.users[id]?.name || 'Dev',
+            avatar: room.users[id]?.avatar || '',
+            color: room.users[id]?.color || '#38bdf8'
+          })));
+        }
       }
     }
   });
 
-  // 4. Cambios de documento
+  // 4. Cambios de documento (Con control de permisos Solo Lectura)
   socket.on('doc-change', (data) => {
     const { roomId, fileName, content, changes } = data;
     const room = rooms.get(roomId);
     if (room) {
+      const isHost = room.hostId === userId;
+      const isReadOnly = !isHost && (room.readonlyForAllGuests || room.userPermissions[userId] === true);
+
+      if (isReadOnly) {
+        socket.emit('permission-denied', { reason: 'Modo Solo Lectura activo: No tienes permisos para editar.' });
+        return;
+      }
+
       room.files[fileName] = content;
       const user = room.users[userId];
       socket.to(roomId).emit('doc-changed', {
@@ -238,141 +268,100 @@ io.on('connection', (socket) => {
     }
   });
 
-  // 7. Señalización WebRTC para Video y Audio P2P en el editor
-  socket.on('webrtc-signal', (data) => {
-    const { roomId, targetUserId, signal } = data;
-    if (targetUserId) {
-      io.to(targetUserId).emit('webrtc-signal-received', {
-        senderUserId: userId,
-        signal
+  // 7. Configuración de Permisos del Anfitrión (Feature 1)
+  socket.on('set-room-permissions', (data) => {
+    const { roomId, readonlyForAllGuests, userPermissions, voiceEnabled, whiteboardEnabled } = data;
+    const room = rooms.get(roomId);
+    if (room && room.hostId === userId) {
+      if (typeof readonlyForAllGuests === 'boolean') room.readonlyForAllGuests = readonlyForAllGuests;
+      if (userPermissions) room.userPermissions = { ...room.userPermissions, ...userPermissions };
+      if (typeof voiceEnabled === 'boolean') room.voiceEnabled = voiceEnabled;
+      if (typeof whiteboardEnabled === 'boolean') room.whiteboardEnabled = whiteboardEnabled;
+
+      // Actualizar estado de usuarios
+      Object.keys(room.users).forEach(uId => {
+        const u = room.users[uId];
+        u.isReadOnly = (uId !== room.hostId) && (room.readonlyForAllGuests || room.userPermissions[uId] === true);
       });
-    } else if (roomId) {
-      socket.to(roomId).emit('webrtc-signal-received', {
-        senderUserId: userId,
-        signal
+
+      io.to(roomId).emit('permissions-updated', {
+        readonlyForAllGuests: room.readonlyForAllGuests,
+        userPermissions: room.userPermissions,
+        voiceEnabled: room.voiceEnabled,
+        whiteboardEnabled: room.whiteboardEnabled
       });
+      io.to(roomId).emit('room-presence-updated', Object.values(room.users));
+      console.log(`[LivecodeAE] Permisos actualizados en ${roomId}: readonly=${room.readonlyForAllGuests}`);
     }
   });
 
-  // 8. Sala de Videollamada y Voz WebRTC P2P (Canal Independiente - No duplica usuarios de código)
-  let callRoomId = null;
-
-  socket.on('join-call', (data) => {
-    const roomId = (data.roomId || '').toUpperCase().trim();
-    const callerName = data.name || 'Programador LivecodeAE';
-    const isHost = data.isHost === '1' || data.isHost === true;
-    const allowGuestCall = data.allowGuestCall === '1' || data.allowGuestCall === true;
-    if (!roomId) return;
-
-    callRoomId = roomId;
-    const callChannel = 'call_' + roomId;
-    socket.join(callChannel);
-
-    if (!callRooms.has(roomId)) {
-      callRooms.set(roomId, {
-        hostId: isHost ? userId : null,
-        hostName: isHost ? callerName : '',
-        started: isHost || allowGuestCall,
-        callers: new Map()
-      });
-    }
-    const cRoom = callRooms.get(roomId);
-
-    if (isHost) {
-      cRoom.hostId = userId;
-      cRoom.hostName = callerName;
-      if (!cRoom.started) {
-        cRoom.started = true;
-        console.log(`[LivecodeAE Call] El Anfitrión ${callerName} ha INICIADO la videollamada en la sala ${roomId}`);
-        socket.to(callChannel).emit('call-started', { hostName: callerName });
-      }
-    }
-
-    // Registrar participante
-    cRoom.callers.set(userId, callerName);
-
-    // Obtener los otros participantes que ya están en la llamada
-    const existingCallers = [];
-    cRoom.callers.forEach((name, id) => {
-      if (id !== userId) existingCallers.push({ id, name });
-    });
-
-    const isCallActive = cRoom.started || allowGuestCall;
-    console.log(`[LivecodeAE Call] ${callerName} (${isHost ? 'Anfitrión' : 'Invitado'}) se unió a la llamada en ${roomId}. Activa: ${isCallActive}`);
-
-    // Responder al participante que se unió
-    socket.emit('call-joined', {
-      myId: userId,
-      isHost,
-      isCallActive,
-      hostName: cRoom.hostName || 'el anfitrión',
-      participants: existingCallers
-    });
-
-    if (isCallActive) {
-      socket.to(callChannel).emit('caller-joined', {
-        id: userId,
-        name: callerName
-      });
+  // 8. Pizarra de Arquitectura Colaborativa (Feature 5)
+  socket.on('whiteboard-stroke', (data) => {
+    const { roomId, stroke } = data;
+    const room = rooms.get(roomId);
+    if (room && room.whiteboardEnabled !== false) {
+      if (!room.whiteboardStrokes) room.whiteboardStrokes = [];
+      if (room.whiteboardStrokes.length > 800) room.whiteboardStrokes.shift();
+      room.whiteboardStrokes.push(stroke);
+      socket.to(roomId).emit('whiteboard-stroke', stroke);
     }
   });
 
-  socket.on('call-signal', (data) => {
-    const { roomId, targetUserId, signal } = data;
-    const callChannel = 'call_' + roomId;
-    if (targetUserId) {
-      io.to(targetUserId).emit('call-signal-received', {
-        senderUserId: userId,
-        signal
-      });
-    } else if (roomId) {
-      socket.to(callChannel).emit('call-signal-received', {
-        senderUserId: userId,
-        signal
-      });
+  socket.on('whiteboard-clear', (data) => {
+    const { roomId } = data;
+    const room = rooms.get(roomId);
+    if (room) {
+      room.whiteboardStrokes = [];
+      io.to(roomId).emit('whiteboard-clear');
     }
   });
 
-  // Relay Multimedia Directo por WebSocket (Inmune a Firewalls y NAT Simétrico)
-  socket.on('call-video-frame', (data) => {
-    const { roomId, frame, isScreen } = data;
-    if (roomId) {
-      const senderName = callRooms.get(roomId)?.get(userId) || data.senderName || 'Programador';
-      socket.to('call_' + roomId).emit('call-video-frame', {
-        senderUserId: userId,
-        senderName,
-        frame,
-        isScreen
-      });
+  // 9. Canal de Voz Ligero VoIP (Feature 4)
+  socket.on('voice-join', (data) => {
+    const { roomId } = data;
+    const room = rooms.get(roomId);
+    if (room && room.voiceEnabled !== false) {
+      if (!room.voiceUsers) room.voiceUsers = new Set();
+      room.voiceUsers.add(userId);
+      const list = Array.from(room.voiceUsers).map(id => ({
+        id,
+        name: room.users[id]?.name || 'Dev',
+        avatar: room.users[id]?.avatar || '',
+        color: room.users[id]?.color || '#38bdf8'
+      }));
+      io.to(roomId).emit('voice-presence-updated', list);
     }
   });
 
-  socket.on('call-audio-pcm', (data) => {
+  socket.on('voice-leave', (data) => {
+    const { roomId } = data;
+    const room = rooms.get(roomId);
+    if (room && room.voiceUsers) {
+      room.voiceUsers.delete(userId);
+      const list = Array.from(room.voiceUsers).map(id => ({
+        id,
+        name: room.users[id]?.name || 'Dev',
+        avatar: room.users[id]?.avatar || '',
+        color: room.users[id]?.color || '#38bdf8'
+      }));
+      io.to(roomId).emit('voice-presence-updated', list);
+    }
+  });
+
+  socket.on('voice-audio-pcm', (data) => {
     const { roomId, pcm } = data;
-    if (roomId) {
-      socket.to('call_' + roomId).emit('call-audio-pcm', {
+    const room = rooms.get(roomId);
+    if (room && room.voiceEnabled !== false) {
+      socket.to(roomId).emit('voice-audio-pcm', {
         senderUserId: userId,
         pcm
       });
     }
   });
 
-  // 9. Desconexión
+  // 10. Desconexión
   socket.on('disconnect', () => {
     console.log(`[LivecodeAE] Desconectado: ${userId}`);
-
-    // Limpieza de llamada si estaba en videollamada
-    if (callRoomId && callRooms.has(callRoomId)) {
-      const cRoom = callRooms.get(callRoomId);
-      if (cRoom && cRoom.callers) {
-        cRoom.callers.delete(userId);
-        socket.to('call_' + callRoomId).emit('caller-left', { id: userId });
-        if (cRoom.callers.size === 0) {
-          callRooms.delete(callRoomId);
-        }
-      }
-      console.log(`[LivecodeAE Call] Usuario ${userId} salió de la llamada ${callRoomId}`);
-    }
 
     // Limpieza de sala de código en VS Code
     if (userRoomId && rooms.has(userRoomId)) {
