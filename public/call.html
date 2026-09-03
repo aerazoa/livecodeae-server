@@ -402,47 +402,45 @@
       socket = io();
 
       socket.on('connect', () => {
-        console.log('[LivecodeAE] Conectado al servidor de señalización. ID:', socket.id);
+        console.log('[LivecodeAE Call] Conectado al servidor de llamadas. ID:', socket.id);
         document.getElementById('statusDot').className = 'status-dot connected';
         document.getElementById('statusText').innerText = 'En Línea';
 
-        socket.emit('join-room', {
+        // Unirse exclusivamente al canal de llamada (NO a la sala de código de VS Code)
+        socket.emit('join-call', {
           roomId,
           name: userName
         });
       });
 
-      // CASO 1: Cuando nos unimos a una sala donde YA HAY un compañero
-      // En este caso, NOSOTROS somos los recién llegados e iniciamos la llamada enviando la oferta
-      socket.on('room-joined', (data) => {
-        console.log('[LivecodeAE] room-joined:', data);
-        const otherUsers = (data.users || []).filter(u => u.id !== socket.id);
-        if (otherUsers.length > 0) {
-          const peer = otherUsers[0];
+      // CASO 1: Cuando nos unimos a una llamada donde YA HAY un compañero
+      // Nosotros iniciamos la llamada enviándole la oferta
+      socket.on('call-joined', (data) => {
+        console.log('[LivecodeAE Call] call-joined:', data);
+        if (data.participants && data.participants.length > 0) {
+          const peer = data.participants[0];
           remoteUserId = peer.id;
           document.getElementById('remoteNameLabel').innerText = peer.name || 'Compañero';
-          document.getElementById('remoteStatusMsg').innerText = 'Iniciando llamada con ' + peer.name + '...';
-          console.log('[LivecodeAE] Compañero detectado en room-joined. Iniciando llamada hacia:', peer.id);
+          document.getElementById('remoteStatusMsg').innerText = 'Iniciando conexión P2P con ' + peer.name + '...';
+          console.log('[LivecodeAE Call] Iniciando llamada hacia:', peer.id, peer.name);
           startCall(remoteUserId);
         }
       });
 
-      // CASO 2: Cuando estamos en la sala y un nuevo compañero SE UNE después de nosotros
-      // Solo actualizamos el nombre del compañero. NO enviamos oferta para evitar colisión;
-      // esperamos pacientemente su oferta.
-      socket.on('user-joined', (user) => {
-        console.log('[LivecodeAE] user-joined:', user);
-        remoteUserId = user.id;
-        document.getElementById('remoteNameLabel').innerText = user.name || 'Compañero';
-        document.getElementById('remoteStatusMsg').innerText = 'Conectando con ' + user.name + '...';
+      // CASO 2: Cuando estamos en la llamada y un nuevo compañero ENTRA después de nosotros
+      socket.on('caller-joined', (peer) => {
+        console.log('[LivecodeAE Call] Nuevo participante entró:', peer);
+        remoteUserId = peer.id;
+        document.getElementById('remoteNameLabel').innerText = peer.name || 'Compañero';
+        document.getElementById('remoteStatusMsg').innerText = 'Conectando con ' + peer.name + '...';
       });
 
-      // Recibir mensajes de señalización WebRTC
-      socket.on('webrtc-signal-received', async (data) => {
+      // Recibir mensajes de señalización WebRTC exclusivos de la llamada
+      socket.on('call-signal-received', async (data) => {
         const { senderUserId, signal } = data;
         if (!signal) return;
 
-        console.log('[LivecodeAE] Señal recibida de ' + senderUserId + ':', signal.type);
+        console.log('[LivecodeAE Call] Señal recibida de ' + senderUserId + ':', signal.type);
 
         if (signal.type === 'offer') {
           remoteUserId = senderUserId;
@@ -456,8 +454,8 @@
         }
       });
 
-      socket.on('user-left', (leftUserId) => {
-        if (leftUserId === remoteUserId) {
+      socket.on('caller-left', (peer) => {
+        if (peer.id === remoteUserId) {
           handleRemoteHangup();
         }
       });
@@ -466,13 +464,13 @@
     function createPeerConnection(targetId) {
       if (peerConnection) return peerConnection;
 
-      console.log('[LivecodeAE] Creando RTCPeerConnection con servidores TURN...');
+      console.log('[LivecodeAE Call] Creando RTCPeerConnection...');
       peerConnection = new RTCPeerConnection(rtcConfig);
 
       // 1. Agregar pistas locales (Audio y Video)
       if (localStream) {
         localStream.getTracks().forEach(track => {
-          console.log('[LivecodeAE] Añadiendo pista local:', track.kind);
+          console.log('[LivecodeAE Call] Añadiendo pista local:', track.kind);
           peerConnection.addTrack(track, localStream);
         });
       }
@@ -480,7 +478,7 @@
       // 2. Manejo de candidatos ICE locales
       peerConnection.onicecandidate = (event) => {
         if (event.candidate && socket) {
-          socket.emit('webrtc-signal', {
+          socket.emit('call-signal', {
             roomId,
             targetUserId: targetId || remoteUserId,
             signal: { type: 'candidate', candidate: event.candidate }
@@ -491,7 +489,7 @@
       // 3. Monitoreo de estado de conexión P2P
       peerConnection.onconnectionstatechange = () => {
         const state = peerConnection.connectionState;
-        console.log('[LivecodeAE] Estado de conexión P2P:', state);
+        console.log('[LivecodeAE Call] Estado de conexión P2P:', state);
         const badge = document.getElementById('remoteP2PState');
         if (state === 'connected') {
           badge.innerText = '🟢 P2P Cifrado OK';
@@ -511,7 +509,7 @@
 
       // 4. Recepción de pistas remotas (Video / Audio de tu compañero)
       peerConnection.ontrack = (event) => {
-        console.log('[LivecodeAE] ¡Pista remota recibida!', event.track.kind, event.streams);
+        console.log('[LivecodeAE Call] ¡Pista remota recibida!', event.track.kind, event.streams);
         const remoteVideo = document.getElementById('remoteVideo');
         remoteVideo.muted = false; // Permitir audio remoto
 
@@ -530,7 +528,7 @@
 
         // Iniciar reproducción y chequear bloqueo de audio
         remoteVideo.play().catch(err => {
-          console.warn('[LivecodeAE] Autoplay de audio bloqueado por el navegador:', err);
+          console.warn('[LivecodeAE Call] Autoplay de audio bloqueado por el navegador:', err);
           document.getElementById('audioUnlockBanner').style.display = 'block';
         });
       };
@@ -546,15 +544,15 @@
           offerToReceiveVideo: true
         });
         await pc.setLocalDescription(offer);
-        console.log('[LivecodeAE] Enviando oferta a:', targetId);
+        console.log('[LivecodeAE Call] Enviando oferta a:', targetId);
 
-        socket.emit('webrtc-signal', {
+        socket.emit('call-signal', {
           roomId,
           targetUserId: targetId,
           signal: { type: 'offer', sdp: offer }
         });
       } catch (err) {
-        console.error('[LivecodeAE] Error en createOffer:', err);
+        console.error('[LivecodeAE Call] Error en createOffer:', err);
       }
     }
 
@@ -566,15 +564,15 @@
 
         const answer = await pc.createAnswer();
         await pc.setLocalDescription(answer);
-        console.log('[LivecodeAE] Enviando respuesta a:', senderId);
+        console.log('[LivecodeAE Call] Enviando respuesta a:', senderId);
 
-        socket.emit('webrtc-signal', {
+        socket.emit('call-signal', {
           roomId,
           targetUserId: senderId,
           signal: { type: 'answer', sdp: answer }
         });
       } catch (err) {
-        console.error('[LivecodeAE] Error en handleOffer:', err);
+        console.error('[LivecodeAE Call] Error en handleOffer:', err);
       }
     }
 
@@ -584,7 +582,7 @@
         await peerConnection.setRemoteDescription(new RTCSessionDescription(sdp));
         await processQueuedCandidates();
       } catch (err) {
-        console.error('[LivecodeAE] Error en handleAnswer:', err);
+        console.error('[LivecodeAE Call] Error en handleAnswer:', err);
       }
     }
 
@@ -595,7 +593,7 @@
         try {
           await peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
         } catch (err) {
-          console.warn('[LivecodeAE] Error agregando candidato ICE:', err);
+          console.warn('[LivecodeAE Call] Error agregando candidato ICE:', err);
         }
       } else {
         iceCandidateQueue.push(candidate);
@@ -610,7 +608,7 @@
             await peerConnection.addIceCandidate(new RTCIceCandidate(cand));
           }
         } catch (err) {
-          console.warn('[LivecodeAE] Error en candidato encolado:', err);
+          console.warn('[LivecodeAE Call] Error en candidato encolado:', err);
         }
       }
     }
@@ -676,14 +674,14 @@
 
           const localVideo = document.getElementById('localVideo');
           localVideo.srcObject = screenStream;
-          localVideo.classList.remove('mirrored'); // Desactivar espejo para pantalla compartida
+          localVideo.classList.remove('mirrored');
           isSharingScreen = true;
           document.getElementById('btnShare').innerText = '🛑 Detener Pantalla';
           document.getElementById('btnShare').className = 'btn-ctrl btn-danger';
 
           screenTrack.onended = () => stopScreenShare();
         } catch (e) {
-          console.warn('[LivecodeAE] Error al compartir pantalla:', e);
+          console.warn('[LivecodeAE Call] Error al compartir pantalla:', e);
         }
       } else {
         stopScreenShare();
@@ -702,7 +700,7 @@
         }
         const localVideo = document.getElementById('localVideo');
         localVideo.srcObject = localStream;
-        localVideo.classList.add('mirrored'); // Volver a activar espejo para la cámara web
+        localVideo.classList.add('mirrored');
       }
       isSharingScreen = false;
       const btn = document.getElementById('btnShare');
@@ -725,7 +723,7 @@
         peerConnection.close();
       }
       if (socket) {
-        socket.emit('webrtc-signal', {
+        socket.emit('call-signal', {
           roomId,
           targetUserId: remoteUserId,
           signal: { type: 'hangup' }

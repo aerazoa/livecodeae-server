@@ -32,6 +32,7 @@ app.get('/health', (req, res) => {
 // ─── State ───────────────────────────────────────────────────────────────────
 const rooms = new Map();       // roomId → { id, users, files, hostId }
 const colorIndex = new Map();  // roomId → nextColorIndex
+const callRooms = new Map();   // roomId → Map(userId → callerName)
 
 const PALETTE = [
   '#22c55e', // Verde (Sam)
@@ -221,7 +222,7 @@ io.on('connection', (socket) => {
     }
   });
 
-  // 7. Señalización WebRTC para Video y Audio P2P
+  // 7. Señalización WebRTC para Video y Audio P2P en el editor
   socket.on('webrtc-signal', (data) => {
     const { roomId, targetUserId, signal } = data;
     if (targetUserId) {
@@ -237,9 +238,79 @@ io.on('connection', (socket) => {
     }
   });
 
-  // 8. Desconexión
+  // 8. Sala de Videollamada y Voz WebRTC P2P (Canal Independiente - No duplica usuarios de código)
+  let callRoomId = null;
+
+  socket.on('join-call', (data) => {
+    const roomId = (data.roomId || '').toUpperCase().trim();
+    const callerName = data.name || 'Programador LivecodeAE';
+    if (!roomId) return;
+
+    callRoomId = roomId;
+    const callChannel = 'call_' + roomId;
+    socket.join(callChannel);
+
+    if (!callRooms.has(roomId)) {
+      callRooms.set(roomId, new Map());
+    }
+    const callers = callRooms.get(roomId);
+
+    // Obtener los otros participantes que ya están en la videollamada
+    const existingCallers = [];
+    callers.forEach((name, id) => {
+      existingCallers.push({ id, name });
+    });
+
+    // Registrar este participante en la llamada
+    callers.set(userId, callerName);
+
+    console.log(`[LivecodeAE Call] ${callerName} (${userId}) se unió a la llamada en ${roomId}. Participantes: ${callers.size}`);
+
+    // Responder con los que ya están adentro
+    socket.emit('call-joined', {
+      myId: userId,
+      participants: existingCallers
+    });
+
+    // Notificar a los que ya estaban que alguien nuevo se unió
+    socket.to(callChannel).emit('caller-joined', {
+      id: userId,
+      name: callerName
+    });
+  });
+
+  socket.on('call-signal', (data) => {
+    const { roomId, targetUserId, signal } = data;
+    const callChannel = 'call_' + roomId;
+    if (targetUserId) {
+      io.to(targetUserId).emit('call-signal-received', {
+        senderUserId: userId,
+        signal
+      });
+    } else if (roomId) {
+      socket.to(callChannel).emit('call-signal-received', {
+        senderUserId: userId,
+        signal
+      });
+    }
+  });
+
+  // 9. Desconexión
   socket.on('disconnect', () => {
     console.log(`[LivecodeAE] Desconectado: ${userId}`);
+
+    // Limpieza de llamada si estaba en videollamada
+    if (callRoomId && callRooms.has(callRoomId)) {
+      const callers = callRooms.get(callRoomId);
+      callers.delete(userId);
+      socket.to('call_' + callRoomId).emit('caller-left', { id: userId });
+      if (callers.size === 0) {
+        callRooms.delete(callRoomId);
+      }
+      console.log(`[LivecodeAE Call] Usuario ${userId} salió de la llamada ${callRoomId}`);
+    }
+
+    // Limpieza de sala de código en VS Code
     if (userRoomId && rooms.has(userRoomId)) {
       const room = rooms.get(userRoomId);
       const isHost = room.hostId === userId;
