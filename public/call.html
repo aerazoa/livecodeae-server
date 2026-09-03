@@ -1,0 +1,458 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>LivecodeAE — Sala de Cámara y Voz en Vivo</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      background: #09090b;
+      color: #f4f4f5;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: space-between;
+      padding: 16px;
+      overflow-x: hidden;
+    }
+
+    header {
+      width: 100%;
+      max-width: 960px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 20px;
+      background: rgba(24, 24, 27, 0.7);
+      backdrop-filter: blur(12px);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 16px;
+      margin-bottom: 16px;
+    }
+
+    .logo {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-weight: 800;
+      font-size: 16px;
+      letter-spacing: -0.5px;
+      color: #38bdf8;
+    }
+
+    .room-tag {
+      background: rgba(56, 189, 248, 0.12);
+      color: #38bdf8;
+      border: 1px solid rgba(56, 189, 248, 0.3);
+      padding: 4px 12px;
+      border-radius: 20px;
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    .status-badge {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 12px;
+      color: #a1a1aa;
+    }
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #ef4444;
+    }
+    .status-dot.connected {
+      background: #22c55e;
+      box-shadow: 0 0 10px #22c55e;
+    }
+
+    main {
+      width: 100%;
+      max-width: 960px;
+      flex: 1;
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+      gap: 16px;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .video-card {
+      position: relative;
+      width: 100%;
+      aspect-ratio: 16 / 10;
+      background: #18181b;
+      border: 2px solid rgba(255, 255, 255, 0.06);
+      border-radius: 20px;
+      overflow: hidden;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+    }
+
+    .video-card video {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      transform: scaleX(-1);
+    }
+    .video-card.remote video {
+      transform: none;
+    }
+
+    .placeholder {
+      position: absolute;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 12px;
+      color: #71717a;
+      font-size: 13px;
+    }
+    .placeholder-icon {
+      font-size: 40px;
+    }
+
+    .user-tag {
+      position: absolute;
+      bottom: 12px;
+      left: 12px;
+      background: rgba(0, 0, 0, 0.7);
+      backdrop-filter: blur(8px);
+      color: #fff;
+      padding: 6px 12px;
+      border-radius: 10px;
+      font-size: 12px;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    .mic-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #22c55e;
+    }
+    .mic-dot.muted {
+      background: #ef4444;
+    }
+
+    footer {
+      width: 100%;
+      max-width: 960px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 14px;
+      padding: 16px;
+      margin-top: 16px;
+    }
+
+    .btn-ctrl {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 12px 20px;
+      border-radius: 14px;
+      border: none;
+      font-size: 13px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .btn-ctrl:hover {
+      transform: translateY(-2px);
+    }
+    .btn-primary {
+      background: #27272a;
+      color: #f4f4f5;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+    .btn-primary.active {
+      background: #ef4444;
+      color: #fff;
+    }
+    .btn-accent {
+      background: #0284c7;
+      color: #fff;
+    }
+    .btn-danger {
+      background: #dc2626;
+      color: #fff;
+    }
+  </style>
+  <script src="/socket.io/socket.io.js"></script>
+</head>
+<body>
+  <header>
+    <div class="logo">
+      <span>⚡ LivecodeAE</span>
+      <span style="font-size: 12px; color: #71717a; font-weight: 500;">Cámara & Voz P2P</span>
+    </div>
+    <div class="room-tag" id="roomLabel">Sala: ...</div>
+    <div class="status-badge">
+      <span class="status-dot" id="statusDot"></span>
+      <span id="statusText">Conectando...</span>
+    </div>
+  </header>
+
+  <main>
+    <div class="video-card">
+      <video id="localVideo" autoplay muted playsinline></video>
+      <div id="localPlaceholder" class="placeholder">
+        <span class="placeholder-icon">📷</span>
+        <span>Tu cámara está apagada</span>
+      </div>
+      <div class="user-tag">
+        <span class="mic-dot" id="localMicDot"></span>
+        <span id="localNameLabel">Tú</span>
+      </div>
+    </div>
+
+    <div class="video-card remote">
+      <video id="remoteVideo" autoplay playsinline></video>
+      <div id="remotePlaceholder" class="placeholder">
+        <span class="placeholder-icon">⌛</span>
+        <span>Esperando al compañero de equipo...</span>
+      </div>
+      <div class="user-tag">
+        <span class="mic-dot" id="remoteMicDot"></span>
+        <span id="remoteNameLabel">Compañero</span>
+      </div>
+    </div>
+  </main>
+
+  <footer>
+    <button class="btn-ctrl btn-primary" id="btnMic" onclick="toggleMic()">🎙️ Micrófono ON</button>
+    <button class="btn-ctrl btn-primary" id="btnCam" onclick="toggleCam()">📹 Cámara ON</button>
+    <button class="btn-ctrl btn-accent" id="btnShare" onclick="toggleShare()">🖥️ Compartir Pantalla</button>
+    <button class="btn-ctrl btn-danger" onclick="hangup()">❌ Salir</button>
+  </footer>
+
+  <script>
+    const urlParams = new URLSearchParams(window.location.search);
+    const roomId = (urlParams.get('room') || 'DEFAULT').toUpperCase().trim();
+    const userName = urlParams.get('name') || 'Programador LivecodeAE';
+    const userAvatar = urlParams.get('avatar') || '';
+
+    document.getElementById('roomLabel').innerText = 'Sala: ' + roomId;
+    document.getElementById('localNameLabel').innerText = userName + ' (Tú)';
+
+    let localStream = null;
+    let peerConnection = null;
+    let isMicMuted = false;
+    let isCamOff = false;
+    let isSharingScreen = false;
+    let socket = null;
+
+    const rtcConfig = {
+      iceServers: [
+        { urls: 'stun:stun.l.google.com:19302' },
+        { urls: 'stun:stun1.l.google.com:19302' }
+      ]
+    };
+
+    async function initMedia() {
+      try {
+        localStream = await navigator.mediaDevices.getUserMedia({
+          video: { width: { ideal: 640 }, height: { ideal: 480 }, frameRate: { max: 24 } },
+          audio: { echoCancellation: true, noiseSuppression: true }
+        });
+
+        const localVideo = document.getElementById('localVideo');
+        localVideo.srcObject = localStream;
+        document.getElementById('localPlaceholder').style.display = 'none';
+
+        connectSocket();
+      } catch (err) {
+        alert('Por favor autoriza los permisos de cámara y micrófono para iniciar la videollamada: ' + err.message);
+        connectSocket();
+      }
+    }
+
+    function connectSocket() {
+      socket = io();
+
+      socket.on('connect', () => {
+        document.getElementById('statusDot').className = 'status-dot connected';
+        document.getElementById('statusText').innerText = 'En Línea';
+
+        socket.emit('join-room', {
+          roomId,
+          name: userName,
+          avatar: userAvatar
+        });
+      });
+
+      socket.on('user-joined', (user) => {
+        document.getElementById('remoteNameLabel').innerText = user.name || 'Compañero';
+        createOffer();
+      });
+
+      socket.on('webrtc-signal-received', async (data) => {
+        const { senderUserId, signal } = data;
+        if (!signal) return;
+
+        if (signal.type === 'offer') {
+          await createAnswer(signal.sdp, senderUserId);
+        } else if (signal.type === 'answer') {
+          if (peerConnection) {
+            await peerConnection.setRemoteDescription(new RTCSessionDescription(signal.sdp));
+          }
+        } else if (signal.type === 'candidate') {
+          if (peerConnection && signal.candidate) {
+            try {
+              await peerConnection.addIceCandidate(new RTCIceCandidate(signal.candidate));
+            } catch (e) {}
+          }
+        } else if (signal.type === 'hangup') {
+          const remoteVideo = document.getElementById('remoteVideo');
+          remoteVideo.srcObject = null;
+          document.getElementById('remotePlaceholder').style.display = 'flex';
+          if (peerConnection) {
+            peerConnection.close();
+            peerConnection = null;
+          }
+        }
+      });
+    }
+
+    function setupPeerConnection() {
+      if (peerConnection) return peerConnection;
+      peerConnection = new RTCPeerConnection(rtcConfig);
+
+      if (localStream) {
+        localStream.getTracks().forEach(track => {
+          peerConnection.addTrack(track, localStream);
+        });
+      }
+
+      peerConnection.onicecandidate = (event) => {
+        if (event.candidate && socket) {
+          socket.emit('webrtc-signal', {
+            roomId,
+            signal: { type: 'candidate', candidate: event.candidate }
+          });
+        }
+      };
+
+      peerConnection.ontrack = (event) => {
+        const remoteVideo = document.getElementById('remoteVideo');
+        remoteVideo.srcObject = event.streams[0];
+        document.getElementById('remotePlaceholder').style.display = 'none';
+      };
+
+      return peerConnection;
+    }
+
+    async function createOffer() {
+      const pc = setupPeerConnection();
+      const offer = await pc.createOffer();
+      await pc.setLocalDescription(offer);
+
+      socket.emit('webrtc-signal', {
+        roomId,
+        signal: { type: 'offer', sdp: offer }
+      });
+    }
+
+    async function createAnswer(sdp, senderUserId) {
+      const pc = setupPeerConnection();
+      await pc.setRemoteDescription(new RTCSessionDescription(sdp));
+      const answer = await pc.createAnswer();
+      await pc.setLocalDescription(answer);
+
+      socket.emit('webrtc-signal', {
+        roomId,
+        targetUserId: senderUserId,
+        signal: { type: 'answer', sdp: answer }
+      });
+    }
+
+    function toggleMic() {
+      if (!localStream) return;
+      const audioTrack = localStream.getAudioTracks()[0];
+      if (audioTrack) {
+        isMicMuted = !isMicMuted;
+        audioTrack.enabled = !isMicMuted;
+        const btn = document.getElementById('btnMic');
+        btn.innerText = isMicMuted ? '🔇 Micrófono MUTE' : '🎙️ Micrófono ON';
+        btn.className = isMicMuted ? 'btn-ctrl btn-primary active' : 'btn-ctrl btn-primary';
+        document.getElementById('localMicDot').className = isMicMuted ? 'mic-dot muted' : 'mic-dot';
+      }
+    }
+
+    function toggleCam() {
+      if (!localStream) return;
+      const videoTrack = localStream.getVideoTracks()[0];
+      if (videoTrack) {
+        isCamOff = !isCamOff;
+        videoTrack.enabled = !isCamOff;
+        const btn = document.getElementById('btnCam');
+        btn.innerText = isCamOff ? '🚫 Cámara OFF' : '📹 Cámara ON';
+        btn.className = isCamOff ? 'btn-ctrl btn-primary active' : 'btn-ctrl btn-primary';
+        document.getElementById('localPlaceholder').style.display = isCamOff ? 'flex' : 'none';
+      }
+    }
+
+    async function toggleShare() {
+      if (!isSharingScreen) {
+        try {
+          const screenStream = await navigator.mediaDevices.getDisplayMedia({ video: true });
+          const screenTrack = screenStream.getVideoTracks()[0];
+
+          if (peerConnection) {
+            const sender = peerConnection.getSenders().find(s => s.track.kind === 'video');
+            if (sender) sender.replaceTrack(screenTrack);
+          }
+
+          document.getElementById('localVideo').srcObject = screenStream;
+          isSharingScreen = true;
+          document.getElementById('btnShare').innerText = '🛑 Detener Pantalla';
+
+          screenTrack.onended = () => stopScreenShare();
+        } catch (e) {}
+      } else {
+        stopScreenShare();
+      }
+    }
+
+    function stopScreenShare() {
+      if (localStream && peerConnection) {
+        const videoTrack = localStream.getVideoTracks()[0];
+        const sender = peerConnection.getSenders().find(s => s.track.kind === 'video');
+        if (sender && videoTrack) sender.replaceTrack(videoTrack);
+        document.getElementById('localVideo').srcObject = localStream;
+      }
+      isSharingScreen = false;
+      document.getElementById('btnShare').innerText = '🖥️ Compartir Pantalla';
+    }
+
+    function hangup() {
+      if (localStream) {
+        localStream.getTracks().forEach(t => t.stop());
+      }
+      if (peerConnection) {
+        peerConnection.close();
+      }
+      if (socket) {
+        socket.emit('webrtc-signal', { roomId, signal: { type: 'hangup' } });
+      }
+      window.close();
+    }
+
+    window.onload = initMedia;
+  </script>
+</body>
+</html>

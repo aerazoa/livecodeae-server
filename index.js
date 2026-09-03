@@ -1,14 +1,20 @@
 const express = require('express');
 const http = require('http');
+const path = require('path');
 const { Server } = require('socket.io');
 const cors = require('cors');
 
 const app = express();
 app.use(cors());
+app.use(express.static(path.join(__dirname, 'public')));
 
 const PORT = process.env.PORT || 4815;
 
-// ─── Health check ────────────────────────────────────────────────────────────
+// ─── Rutas Web y Health check ─────────────────────────────────────────────────
+app.get('/call', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'call.html'));
+});
+
 app.get('/', (req, res) => {
   res.json({
     status: 'ok',
