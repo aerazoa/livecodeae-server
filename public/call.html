@@ -63,6 +63,23 @@
       letter-spacing: 0.5px;
     }
 
+    .role-badge {
+      padding: 4px 10px;
+      border-radius: 20px;
+      font-size: 11px;
+      font-weight: 700;
+    }
+    .role-badge.host {
+      background: rgba(234, 179, 8, 0.15);
+      color: #eab308;
+      border: 1px solid rgba(234, 179, 8, 0.35);
+    }
+    .role-badge.guest {
+      background: rgba(168, 85, 247, 0.15);
+      color: #c084fc;
+      border: 1px solid rgba(168, 85, 247, 0.35);
+    }
+
     .security-badge {
       display: flex;
       align-items: center;
@@ -141,7 +158,7 @@
       transition: all 0.3s ease;
     }
 
-    /* MODO 1: Cuadrícula estándar (Grid Mode) */
+    /* MODO 1: Cuadrícula estándar */
     main.mode-grid {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
@@ -149,7 +166,7 @@
       align-content: center;
     }
 
-    /* MODO 2: Spotlight / Sidebar (Pantalla Principal Grande + Barra Lateral) */
+    /* MODO 2: Spotlight */
     main.mode-spotlight {
       display: flex;
       flex-direction: row;
@@ -176,7 +193,7 @@
       height: 180px;
     }
 
-    /* MODO 3: Avatares Redondos / Burbujas (Discord / Meet Circles) */
+    /* MODO 3: Avatares Redondos */
     main.mode-bubbles {
       display: flex;
       flex-wrap: wrap;
@@ -371,6 +388,38 @@
       color: #fff;
     }
 
+    /* ─── Modal de Sala de Espera para Invitados ────────────────────────────── */
+    .waiting-backdrop {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(9, 9, 11, 0.92);
+      backdrop-filter: blur(16px);
+      z-index: 999;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+    .waiting-box {
+      background: #18181b;
+      border: 1px solid rgba(56, 189, 248, 0.3);
+      border-radius: 20px;
+      max-width: 480px;
+      width: 100%;
+      padding: 32px 24px;
+      text-align: center;
+      box-shadow: 0 20px 50px rgba(0,0,0,0.8);
+    }
+    .waiting-icon {
+      font-size: 48px;
+      margin-bottom: 12px;
+      animation: pulse 2s infinite;
+    }
+    @keyframes pulse {
+      0%, 100% { transform: scale(1); opacity: 1; }
+      50% { transform: scale(1.1); opacity: 0.7; }
+    }
+
     /* ─── Modal de Seguridad ──────────────────────────────────────────────────── */
     .modal-backdrop {
       display: none;
@@ -432,13 +481,14 @@
   <header>
     <div class="logo">
       <span>⚡ LivecodeAE</span>
-      <span style="font-size: 12px; color: #71717a; font-weight: 500;">Sala Colaborativa Multi-Usuario</span>
+      <span style="font-size: 12px; color: #71717a; font-weight: 500;">Sala Colaborativa en Vivo</span>
     </div>
 
     <div class="header-center">
       <div class="room-tag" id="roomLabel">Sala: ...</div>
+      <div class="role-badge host" id="roleBadge">👑 Anfitrión</div>
       <div class="security-badge" onclick="openSecurityModal()" title="Haz clic para ver detalles de seguridad y cifrado">
-        🔒 Canal WSS 443 Cifrado (Auditar)
+        🔒 Canal WSS 443 Cifrado
       </div>
     </div>
 
@@ -487,6 +537,23 @@
     <button class="btn-ctrl btn-danger" onclick="hangup()">❌ Salir</button>
   </footer>
 
+  <!-- Modal Sala de Espera (Para Invitados cuando el Anfitrión no ha iniciado) -->
+  <div class="waiting-backdrop" id="waitingForHostModal">
+    <div class="waiting-box">
+      <div class="waiting-icon">⏳</div>
+      <h2 style="color: #38bdf8; margin-bottom: 8px;">Sala de Espera LivecodeAE</h2>
+      <p style="font-size: 13px; color: #e4e4e7; line-height: 1.5; margin-bottom: 14px;">
+        El anfitrión (<b id="waitingHostName">Angel Erazo</b>) aún no ha iniciado esta videollamada.
+      </p>
+      <div style="background: rgba(56, 189, 248, 0.1); border: 1px solid rgba(56, 189, 248, 0.3); color: #38bdf8; padding: 10px 14px; border-radius: 12px; font-size: 12px; font-weight: 600; margin-bottom: 14px;">
+        🔒 Solo el anfitrión autorizado puede iniciar la llamada
+      </div>
+      <p style="font-size: 11px; color: #71717a;">
+        Esta ventana se activará y conectará automáticamente en cuanto el anfitrión ingrese a la sala.
+      </p>
+    </div>
+  </div>
+
   <!-- Modal de Verificación de Privacidad y Seguridad -->
   <div class="modal-backdrop" id="securityModal" onclick="closeSecurityModal(event)">
     <div class="modal-card" onclick="event.stopPropagation()">
@@ -496,14 +563,8 @@
       </div>
       <div class="modal-body">
         <p><b>1. Cifrado de Transporte TLS 1.3:</b> Todo el flujo de voz (PCM), video e intercambio de código se transmite exclusivamente sobre conexiones cifradas <code>wss://</code> y <code>https://</code> en el puerto 443.</p>
-        <p><b>2. Memoria Efímera (Cero Grabación):</b> El servidor relay no escribe ni almacena video ni audio en base de datos ni en disco duro. Los paquetes se retransmiten en memoria RAM exclusivamente a los programadores autenticados en esta sala.</p>
-        <p><b>3. Cómo puedes comprobarlo tú mismo ahora mismo:</b></p>
-        <div class="modal-code">
-          1. Presiona F12 en tu navegador para abrir "Herramientas de Desarrollador".<br>
-          2. Ve a la pestaña "Red" (Network) y selecciona el filtro "WS" (WebSockets).<br>
-          3. Haz clic en la conexión de LivecodeAE y selecciona "Mensajes" (Messages).<br>
-          4. Verás que todos los datos viajan sobre el canal seguro encriptado WSS.
-        </div>
+        <p><b>2. Memoria Efímera (Cero Grabación):</b> El servidor relay no almacena video ni audio en base de datos ni en disco duro. Los paquetes se retransmiten en memoria RAM exclusivamente a los programadores autenticados en esta sala.</p>
+        <p><b>3. Control de Acceso por Anfitrión:</b> Solo el dueño de la aplicación puede iniciar sesiones o llamadas salvo que autorice expresamente a los invitados en la configuración.</p>
       </div>
     </div>
   </div>
@@ -512,9 +573,20 @@
     const params = new URLSearchParams(window.location.search);
     const roomId = (params.get('room') || 'GENERAL').toUpperCase().trim();
     const userName = params.get('name') || 'Programador LivecodeAE';
+    const isHost = params.get('isHost') === '1';
+    const allowGuestCall = params.get('allowGuestCall') === '1';
 
     document.getElementById('roomLabel').innerText = 'Sala: ' + roomId;
-    document.getElementById('localNameLabel').innerText = userName + ' (Tú)';
+    document.getElementById('localNameLabel').innerText = userName + (isHost ? ' (Anfitrión)' : ' (Invitado)');
+
+    const roleBadge = document.getElementById('roleBadge');
+    if (isHost) {
+      roleBadge.innerText = '👑 Anfitrión';
+      roleBadge.className = 'role-badge host';
+    } else {
+      roleBadge.innerText = '👤 Invitado';
+      roleBadge.className = 'role-badge guest';
+    }
 
     let localStream = null;
     let screenStream = null;
@@ -522,20 +594,16 @@
     let isCamOff = false;
     let isSharingScreen = false;
     let socket = null;
+    let isCallStartedByHost = isHost || allowGuestCall;
 
-    // Estado de participantes remotos: Map(userId -> { name, element, lastFrame, isScreen })
     const remoteParticipants = new Map();
-
-    // Modo de vista actual: 'grid' | 'spotlight' | 'bubbles'
     let currentViewMode = 'grid';
     let currentSpotlightCardId = null;
 
-    // Audio context (16 kHz VoIP PCM)
     let audioInputCtx = null;
     let audioOutputCtx = null;
     let nextAudioPlayTime = 0;
 
-    // Canvas para emisión de frames a ~18 FPS
     const canvas = document.createElement('canvas');
     canvas.width = 640;
     canvas.height = 360;
@@ -560,10 +628,11 @@
       }
 
       connectSocket();
-      startFrameStreaming();
+      if (isCallStartedByHost) {
+        startFrameStreaming();
+      }
     }
 
-    // ─── Audio Input PCM ───────────────────────────────────────────────────────
     function setupAudioInput(stream) {
       try {
         const AudioCtx = window.AudioContext || window.webkitAudioContext;
@@ -574,10 +643,9 @@
         processor.connect(audioInputCtx.destination);
 
         processor.onaudioprocess = (e) => {
-          if (isMicMuted || !socket || !socket.connected) return;
+          if (isMicMuted || !socket || !socket.connected || !isCallStartedByHost) return;
           const inputData = e.inputBuffer.getChannelData(0);
 
-          // Detectar si estamos hablando para encender el halo verde
           let sum = 0;
           for (let i = 0; i < inputData.length; i++) sum += Math.abs(inputData[i]);
           const avg = sum / inputData.length;
@@ -600,7 +668,6 @@
       }
     }
 
-    // ─── Audio Output PCM ──────────────────────────────────────────────────────
     function playRemoteAudio(senderId, arrayBuffer) {
       try {
         if (!audioOutputCtx) {
@@ -620,7 +687,6 @@
           sum += Math.abs(val);
         }
 
-        // Iluminar la tarjeta del que está hablando
         const avg = sum / int16.length;
         const remoteCard = document.getElementById('card-' + senderId);
         if (remoteCard) {
@@ -644,11 +710,10 @@
       }
     }
 
-    // ─── Emisión de Video Frames ───────────────────────────────────────────────
     function startFrameStreaming() {
       if (frameInterval) clearInterval(frameInterval);
       frameInterval = setInterval(() => {
-        if (!socket || !socket.connected) return;
+        if (!socket || !socket.connected || !isCallStartedByHost) return;
         const videoEl = document.getElementById('localVideo');
         if (!videoEl || (isCamOff && !isSharingScreen)) return;
 
@@ -665,7 +730,6 @@
       }, 55); // ~18 FPS
     }
 
-    // ─── Gestión Dinámica de Participantes (Multi-Usuario) ─────────────────────
     function getOrCreateRemoteCard(userId, name) {
       const cardId = 'card-' + userId;
       let card = document.getElementById(cardId);
@@ -689,7 +753,6 @@
           <div class="connection-overlay" id="badge-${userId}">En Vivo</div>
         `;
 
-        // Añadir al contenedor según el modo activo
         const main = document.getElementById('mainContainer');
         if (currentViewMode === 'spotlight') {
           document.getElementById('sidebarFilmstrip').appendChild(card);
@@ -706,7 +769,6 @@
     function removeRemoteCard(userId) {
       const card = document.getElementById('card-' + userId);
       if (card) {
-        // Si el usuario en spotlight salió, regresar a grid
         if (currentSpotlightCardId === 'card-' + userId) {
           setViewMode('grid');
         }
@@ -722,14 +784,12 @@
         total + (total === 1 ? ' programador' : ' programadores');
     }
 
-    // ─── Modos de Vista & Spotlight ────────────────────────────────────────────
     function setViewMode(mode) {
       currentViewMode = mode;
       const main = document.getElementById('mainContainer');
       const spotlightStage = document.getElementById('spotlightStage');
       const sidebarFilmstrip = document.getElementById('sidebarFilmstrip');
 
-      // Botones activos
       document.getElementById('btnModeGrid').classList.toggle('active', mode === 'grid');
       document.getElementById('btnModeSpotlight').classList.toggle('active', mode === 'spotlight');
       document.getElementById('btnModeBubbles').classList.toggle('active', mode === 'bubbles');
@@ -740,7 +800,6 @@
         spotlightStage.style.display = 'flex';
         sidebarFilmstrip.style.display = 'flex';
 
-        // Si no hay tarjeta seleccionada, seleccionar por defecto la primera pantalla compartida o la local
         if (!currentSpotlightCardId) {
           let chosen = null;
           remoteParticipants.forEach((data, uId) => {
@@ -754,7 +813,6 @@
 
         layoutSpotlight();
       } else {
-        // Reintegrar todas las tarjetas al main
         currentSpotlightCardId = null;
         spotlightStage.style.display = 'none';
         sidebarFilmstrip.style.display = 'none';
@@ -789,25 +847,46 @@
       else setViewMode('grid');
     }
 
-    // ─── Conexión Socket.IO ────────────────────────────────────────────────────
     function connectSocket() {
       socket = io();
 
       socket.on('connect', () => {
-        socket.emit('join-call', { roomId, name: userName });
+        socket.emit('join-call', {
+          roomId,
+          name: userName,
+          isHost,
+          allowGuestCall
+        });
       });
 
       socket.on('call-joined', (data) => {
         if (data.participants) {
           data.participants.forEach(p => getOrCreateRemoteCard(p.id, p.name));
         }
+
+        // Si la llamada NO ha sido iniciada por el anfitrión y somos invitados
+        if (!data.isCallActive && !isHost) {
+          isCallStartedByHost = false;
+          document.getElementById('waitingForHostModal').style.display = 'flex';
+          if (data.hostName) document.getElementById('waitingHostName').innerText = data.hostName;
+        } else {
+          isCallStartedByHost = true;
+          document.getElementById('waitingForHostModal').style.display = 'none';
+          startFrameStreaming();
+        }
+      });
+
+      socket.on('call-started', (data) => {
+        console.log('[LivecodeAE Call] El anfitrión inició la llamada:', data);
+        isCallStartedByHost = true;
+        document.getElementById('waitingForHostModal').style.display = 'none';
+        startFrameStreaming();
       });
 
       socket.on('caller-joined', (peer) => {
         getOrCreateRemoteCard(peer.id, peer.name);
       });
 
-      // Recepción de frames de video / pantalla compartida
       socket.on('call-video-frame', (data) => {
         const { senderUserId, senderName, frame, isScreen } = data;
         const card = getOrCreateRemoteCard(senderUserId, senderName || 'Compañero');
@@ -826,7 +905,6 @@
           }
         }
 
-        // Auto-Spotlight si alguien comienza a compartir pantalla
         const prevData = remoteParticipants.get(senderUserId);
         if (prevData && !prevData.isScreen && isScreen) {
           prevData.isScreen = true;
@@ -834,7 +912,6 @@
         }
       });
 
-      // Recepción de voz PCM
       socket.on('call-audio-pcm', (data) => {
         if (data.pcm) {
           playRemoteAudio(data.senderUserId, data.pcm);
@@ -846,7 +923,6 @@
       });
     }
 
-    // ─── Controles ─────────────────────────────────────────────────────────────
     function toggleMic() {
       isMicMuted = !isMicMuted;
       const btn = document.getElementById('btnMic');
@@ -889,7 +965,6 @@
           document.getElementById('localStatus').innerText = '🖥️ Compartiendo';
           document.getElementById('localStatus').style.color = '#38bdf8';
 
-          // Ponernos a nosotros mismos en spotlight al compartir
           setSpotlight('card-local');
 
           screenStream.getVideoTracks()[0].onended = () => stopScreenShare();
@@ -922,8 +997,10 @@
     function openSecurityModal() {
       document.getElementById('securityModal').style.display = 'flex';
     }
-    function closeSecurityModal() {
-      document.getElementById('securityModal').style.display = 'none';
+    function closeSecurityModal(e) {
+      if (!e || e.target === document.getElementById('securityModal')) {
+        document.getElementById('securityModal').style.display = 'none';
+      }
     }
 
     document.addEventListener('click', () => {

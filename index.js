@@ -78,14 +78,24 @@ io.on('connection', (socket) => {
     userRoomId = roomId;
     socket.join(roomId);
 
-    const hasFiles = data.initialFiles && Object.keys(data.initialFiles).length > 0;
+    const isHostAttempt = data.isHost === true;
+    const roomExists = rooms.has(roomId);
 
-    if (!rooms.has(roomId)) {
+    if (!roomExists) {
+      if (!isHostAttempt) {
+        console.warn(`[LivecodeAE] Intento denegado de crear sala ${roomId} por invitado: ${userId}`);
+        socket.emit('session-join-error', {
+          reason: 'Esta sala no existe aún. Solamente el anfitrión autorizado puede crear nuevas sesiones colaborativas.'
+        });
+        return;
+      }
+
       rooms.set(roomId, {
         id: roomId,
         users: {},
         files: hasFiles ? data.initialFiles : {},
-        hostId: userId
+        hostId: userId,
+        callStarted: false
       });
       colorIndex.set(roomId, 0);
     }
@@ -249,6 +259,8 @@ io.on('connection', (socket) => {
   socket.on('join-call', (data) => {
     const roomId = (data.roomId || '').toUpperCase().trim();
     const callerName = data.name || 'Programador LivecodeAE';
+    const isHost = data.isHost === '1' || data.isHost === true;
+    const allowGuestCall = data.allowGuestCall === '1' || data.allowGuestCall === true;
     if (!roomId) return;
 
     callRoomId = roomId;
@@ -256,32 +268,52 @@ io.on('connection', (socket) => {
     socket.join(callChannel);
 
     if (!callRooms.has(roomId)) {
-      callRooms.set(roomId, new Map());
+      callRooms.set(roomId, {
+        hostId: isHost ? userId : null,
+        hostName: isHost ? callerName : '',
+        started: isHost || allowGuestCall,
+        callers: new Map()
+      });
     }
-    const callers = callRooms.get(roomId);
+    const cRoom = callRooms.get(roomId);
 
-    // Obtener los otros participantes que ya están en la videollamada
+    if (isHost) {
+      cRoom.hostId = userId;
+      cRoom.hostName = callerName;
+      if (!cRoom.started) {
+        cRoom.started = true;
+        console.log(`[LivecodeAE Call] El Anfitrión ${callerName} ha INICIADO la videollamada en la sala ${roomId}`);
+        socket.to(callChannel).emit('call-started', { hostName: callerName });
+      }
+    }
+
+    // Registrar participante
+    cRoom.callers.set(userId, callerName);
+
+    // Obtener los otros participantes que ya están en la llamada
     const existingCallers = [];
-    callers.forEach((name, id) => {
-      existingCallers.push({ id, name });
+    cRoom.callers.forEach((name, id) => {
+      if (id !== userId) existingCallers.push({ id, name });
     });
 
-    // Registrar este participante en la llamada
-    callers.set(userId, callerName);
+    const isCallActive = cRoom.started || allowGuestCall;
+    console.log(`[LivecodeAE Call] ${callerName} (${isHost ? 'Anfitrión' : 'Invitado'}) se unió a la llamada en ${roomId}. Activa: ${isCallActive}`);
 
-    console.log(`[LivecodeAE Call] ${callerName} (${userId}) se unió a la llamada en ${roomId}. Participantes: ${callers.size}`);
-
-    // Responder con los que ya están adentro
+    // Responder al participante que se unió
     socket.emit('call-joined', {
       myId: userId,
+      isHost,
+      isCallActive,
+      hostName: cRoom.hostName || 'el anfitrión',
       participants: existingCallers
     });
 
-    // Notificar a los que ya estaban que alguien nuevo se unió
-    socket.to(callChannel).emit('caller-joined', {
-      id: userId,
-      name: callerName
-    });
+    if (isCallActive) {
+      socket.to(callChannel).emit('caller-joined', {
+        id: userId,
+        name: callerName
+      });
+    }
   });
 
   socket.on('call-signal', (data) => {
@@ -330,11 +362,13 @@ io.on('connection', (socket) => {
 
     // Limpieza de llamada si estaba en videollamada
     if (callRoomId && callRooms.has(callRoomId)) {
-      const callers = callRooms.get(callRoomId);
-      callers.delete(userId);
-      socket.to('call_' + callRoomId).emit('caller-left', { id: userId });
-      if (callers.size === 0) {
-        callRooms.delete(callRoomId);
+      const cRoom = callRooms.get(callRoomId);
+      if (cRoom && cRoom.callers) {
+        cRoom.callers.delete(userId);
+        socket.to('call_' + callRoomId).emit('caller-left', { id: userId });
+        if (cRoom.callers.size === 0) {
+          callRooms.delete(callRoomId);
+        }
       }
       console.log(`[LivecodeAE Call] Usuario ${userId} salió de la llamada ${callRoomId}`);
     }
