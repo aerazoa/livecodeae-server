@@ -124,20 +124,37 @@ io.on('connection', (socket) => {
     const color = PALETTE[idx % PALETTE.length];
     colorIndex.set(roomId, idx + 1);
 
+    // Deduplicar: Si este usuario ya estaba registrado en la sala con otro socket (reconexión o sub-panel)
+    const normName = (data.name || '').trim().toLowerCase();
+    const existingEntry = Object.entries(room.users).find(
+      ([uId, u]) => u.name && u.name.trim().toLowerCase() === normName
+    );
+
+    let userColor = color;
+    if (existingEntry) {
+      const [oldId, oldUser] = existingEntry;
+      userColor = oldUser.color;
+      if (oldId !== userId) {
+        delete room.users[oldId];
+      }
+    }
+
     const presence = {
       id: userId,
       name: data.name || `Dev-${userId.substring(0, 4)}`,
       avatar: data.avatar || `https://api.dicebear.com/7.x/bottts/svg?seed=${encodeURIComponent(data.name || userId)}`,
-      color,
+      color: userColor,
       currentFile: Object.keys(room.files)[0] || 'index.html',
       line: 1,
       col: 1,
       selections: [],
-      isHost: room.hostId === userId,
+      isHost: room.hostId === userId || (existingEntry && existingEntry[1].isHost),
       isReadOnly: room.hostId !== userId && (room.readonlyForAllGuests || room.userPermissions[userId] === true)
     };
 
-    room.users[userId] = presence;
+    if (!data.isVoiceOnly) {
+      room.users[userId] = presence;
+    }
 
     // Enviar estado completo al usuario recién conectado
     socket.emit('room-joined', {
