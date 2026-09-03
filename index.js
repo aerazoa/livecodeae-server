@@ -196,7 +196,42 @@ io.on('connection', (socket) => {
     }
   });
 
-  // 6. Desconexión
+  // 6. Chat de texto en vivo
+  socket.on('chat-message', (data) => {
+    const { roomId, text } = data;
+    const room = rooms.get(roomId);
+    if (room && room.users[userId]) {
+      const user = room.users[userId];
+      const msg = {
+        id: 'msg_' + Date.now() + '_' + Math.random().toString(36).substring(2, 6),
+        userId,
+        userName: user.name,
+        userAvatar: user.avatar,
+        userColor: user.color,
+        text,
+        timestamp: Date.now()
+      };
+      io.to(roomId).emit('chat-message-received', msg);
+    }
+  });
+
+  // 7. Señalización WebRTC para Video y Audio P2P
+  socket.on('webrtc-signal', (data) => {
+    const { roomId, targetUserId, signal } = data;
+    if (targetUserId) {
+      io.to(targetUserId).emit('webrtc-signal-received', {
+        senderUserId: userId,
+        signal
+      });
+    } else if (roomId) {
+      socket.to(roomId).emit('webrtc-signal-received', {
+        senderUserId: userId,
+        signal
+      });
+    }
+  });
+
+  // 8. Desconexión
   socket.on('disconnect', () => {
     console.log(`[LivecodeAE] Desconectado: ${userId}`);
     if (userRoomId && rooms.has(userRoomId)) {
