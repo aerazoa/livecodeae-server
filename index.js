@@ -28,14 +28,14 @@ const rooms = new Map();       // roomId → { id, users, files, hostId }
 const colorIndex = new Map();  // roomId → nextColorIndex
 
 const PALETTE = [
-  '#38bdf8', // Celeste Neón
-  '#34d399', // Menta Neón
-  '#c084fc', // Lavanda Neón
-  '#fbbf24', // Ámbar Neón
-  '#818cf8', // Índigo Neón
-  '#2dd4bf', // Turquesa Neón
-  '#f472b6', // Rosa Neón
-  '#fb923c', // Naranja Neón
+  '#22c55e', // Verde (Sam)
+  '#f43f5e', // Rosa / Coral (Lisa)
+  '#3b82f6', // Azul Eléctrico (David)
+  '#f59e0b', // Ámbar / Dorado (Maria)
+  '#a855f7', // Púrpura Neón (Kevin)
+  '#06b6d4', // Celeste Cian
+  '#ec4899', // Fucsia
+  '#f97316'  // Naranja
 ];
 
 // ─── HTTP + Socket.IO server ─────────────────────────────────────────────────
