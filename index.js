@@ -80,6 +80,7 @@ io.on('connection', (socket) => {
 
     const isHostAttempt = data.isHost === true;
     const roomExists = rooms.has(roomId);
+    const hasFiles = data.initialFiles && Object.keys(data.initialFiles).length > 0;
 
     if (!roomExists) {
       if (!isHostAttempt) {

@@ -24,7 +24,7 @@
     /* ─── Header ─────────────────────────────────────────────────────────────── */
     header {
       width: 100%;
-      max-width: 1300px;
+      max-width: 1400px;
       display: flex;
       align-items: center;
       justify-content: space-between;
@@ -149,7 +149,7 @@
     /* ─── Main Container ──────────────────────────────────────────────────────── */
     main {
       width: 100%;
-      max-width: 1300px;
+      max-width: 1400px;
       flex: 1;
       display: flex;
       gap: 16px;
@@ -161,12 +161,12 @@
     /* MODO 1: Cuadrícula estándar */
     main.mode-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
+      grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
       gap: 16px;
       align-content: center;
     }
 
-    /* MODO 2: Spotlight */
+    /* MODO 2: Spotlight (Pantalla grande) */
     main.mode-spotlight {
       display: flex;
       flex-direction: row;
@@ -177,15 +177,26 @@
       display: flex;
       align-items: center;
       justify-content: center;
-      min-height: 480px;
+      min-height: 520px;
     }
+    main.mode-spotlight #spotlightStage .video-card {
+      width: 100%;
+      height: 100%;
+      aspect-ratio: auto;
+      max-height: 80vh;
+    }
+    main.mode-spotlight #spotlightStage .video-card canvas,
+    main.mode-spotlight #spotlightStage .video-card video {
+      object-fit: contain; /* Para que el código en pantalla compartida nunca se recorte */
+    }
+
     main.mode-spotlight #sidebarFilmstrip {
       width: 280px;
       display: flex;
       flex-direction: column;
       gap: 12px;
       overflow-y: auto;
-      max-height: 75vh;
+      max-height: 80vh;
       padding-right: 4px;
     }
     main.mode-spotlight #sidebarFilmstrip .video-card {
@@ -209,7 +220,7 @@
       border-radius: 50% !important;
       box-shadow: 0 8px 30px rgba(56, 189, 248, 0.2);
     }
-    main.mode-bubbles .video-card img,
+    main.mode-bubbles .video-card canvas,
     main.mode-bubbles .video-card video {
       border-radius: 50%;
       object-fit: cover;
@@ -247,10 +258,11 @@
       box-shadow: 0 0 24px rgba(34, 197, 94, 0.45);
     }
 
-    .video-card video, .video-card img {
+    .video-card video, .video-card canvas {
       width: 100%;
       height: 100%;
       object-fit: cover;
+      background: #000;
     }
 
     .mirrored {
@@ -345,7 +357,7 @@
     /* ─── Footer Controls ─────────────────────────────────────────────────────── */
     footer {
       width: 100%;
-      max-width: 1300px;
+      max-width: 1400px;
       display: flex;
       align-items: center;
       justify-content: center;
@@ -388,7 +400,7 @@
       color: #fff;
     }
 
-    /* ─── Modal de Sala de Espera para Invitados ────────────────────────────── */
+    /* ─── Modal Sala de Espera ────────────────────────────────────────────────── */
     .waiting-backdrop {
       display: none;
       position: fixed;
@@ -413,14 +425,9 @@
     .waiting-icon {
       font-size: 48px;
       margin-bottom: 12px;
-      animation: pulse 2s infinite;
-    }
-    @keyframes pulse {
-      0%, 100% { transform: scale(1); opacity: 1; }
-      50% { transform: scale(1.1); opacity: 0.7; }
     }
 
-    /* ─── Modal de Seguridad ──────────────────────────────────────────────────── */
+    /* ─── Modal Seguridad ─────────────────────────────────────────────────────── */
     .modal-backdrop {
       display: none;
       position: fixed;
@@ -498,7 +505,6 @@
         <span id="participantsText">1 programador</span>
       </div>
 
-      <!-- Selector de Modos de Vista -->
       <div class="view-mode-group">
         <button class="btn-view-mode active" id="btnModeGrid" onclick="setViewMode('grid')">▦ Cuadrícula</button>
         <button class="btn-view-mode" id="btnModeSpotlight" onclick="setViewMode('spotlight')">⛶ Spotlight</button>
@@ -507,9 +513,7 @@
     </div>
   </header>
 
-  <!-- Contenedor Principal Adaptativo -->
   <main id="mainContainer" class="mode-grid">
-    <!-- Tu tarjeta local (Webcam / Pantalla) -->
     <div class="video-card" id="card-local" data-user-id="local">
       <button class="btn-spotlight" onclick="setSpotlight('card-local')">⛶ Maximizar</button>
       <video id="localVideo" class="mirrored" autoplay muted playsinline></video>
@@ -524,7 +528,6 @@
       <div class="connection-overlay" id="localStatus">Local HD</div>
     </div>
 
-    <!-- Contenedores para modo Spotlight -->
     <div id="spotlightStage" style="display:none;"></div>
     <div id="sidebarFilmstrip" style="display:none;"></div>
   </main>
@@ -532,12 +535,12 @@
   <footer>
     <button class="btn-ctrl btn-primary" id="btnMic" onclick="toggleMic()">🎙️ Micrófono ON</button>
     <button class="btn-ctrl btn-primary" id="btnCam" onclick="toggleCam()">📹 Cámara ON</button>
-    <button class="btn-ctrl btn-accent" id="btnShare" onclick="toggleShare()">🖥️ Compartir Pantalla</button>
+    <button class="btn-ctrl btn-accent" id="btnShare" onclick="toggleShare()">🖥️ Compartir Pantalla HD</button>
     <button class="btn-ctrl btn-primary" id="btnCycleView" onclick="cycleViewMode()">📐 Cambiar Vista</button>
     <button class="btn-ctrl btn-danger" onclick="hangup()">❌ Salir</button>
   </footer>
 
-  <!-- Modal Sala de Espera (Para Invitados cuando el Anfitrión no ha iniciado) -->
+  <!-- Modal Sala de Espera para Invitados -->
   <div class="waiting-backdrop" id="waitingForHostModal">
     <div class="waiting-box">
       <div class="waiting-icon">⏳</div>
@@ -549,7 +552,7 @@
         🔒 Solo el anfitrión autorizado puede iniciar la llamada
       </div>
       <p style="font-size: 11px; color: #71717a;">
-        Esta ventana se activará y conectará automáticamente en cuanto el anfitrión ingrese a la sala.
+        Esta ventana se activará automáticamente en cuanto el anfitrión ingrese a la sala.
       </p>
     </div>
   </div>
@@ -558,13 +561,13 @@
   <div class="modal-backdrop" id="securityModal" onclick="closeSecurityModal(event)">
     <div class="modal-card" onclick="event.stopPropagation()">
       <div class="modal-header">
-        <span>🛡️ Auditoría de Privacidad y Cifrado LivecodeAE</span>
+        <span>🛡️ Transmisión Binaria Eficiente LivecodeAE</span>
         <button class="modal-close" onclick="closeSecurityModal()">&times;</button>
       </div>
       <div class="modal-body">
-        <p><b>1. Cifrado de Transporte TLS 1.3:</b> Todo el flujo de voz (PCM), video e intercambio de código se transmite exclusivamente sobre conexiones cifradas <code>wss://</code> y <code>https://</code> en el puerto 443.</p>
-        <p><b>2. Memoria Efímera (Cero Grabación):</b> El servidor relay no almacena video ni audio en base de datos ni en disco duro. Los paquetes se retransmiten en memoria RAM exclusivamente a los programadores autenticados en esta sala.</p>
-        <p><b>3. Control de Acceso por Anfitrión:</b> Solo el dueño de la aplicación puede iniciar sesiones o llamadas salvo que autorice expresamente a los invitados en la configuración.</p>
+        <p><b>1. Transmisión Binaria por WebSocket (Cero Base64):</b> Todo el flujo de video y pantalla se transmite como búferes binarios directos sobre la conexión WebSocket existente (WSS en puerto 443). Ya no genera miles de URLs base64 en la pestaña Network.</p>
+        <p><b>2. Calidad Full HD en Pantalla Compartida:</b> Cuando se activa la pantalla compartida, el lienzo se eleva a resolución 1080p con compresión de alta fidelidad (0.88), manteniendo el código y texto completamente legibles.</p>
+        <p><b>3. Cero Almacenamiento:</b> La transmisión es en memoria RAM sin registros en disco.</p>
       </div>
     </div>
   </div>
@@ -590,6 +593,7 @@
 
     let localStream = null;
     let screenStream = null;
+    let screenVideo = null;
     let isMicMuted = false;
     let isCamOff = false;
     let isSharingScreen = false;
@@ -604,10 +608,9 @@
     let audioOutputCtx = null;
     let nextAudioPlayTime = 0;
 
-    const canvas = document.createElement('canvas');
-    canvas.width = 640;
-    canvas.height = 360;
-    const ctx = canvas.getContext('2d');
+    // Canvas de captura local
+    const localCanvas = document.createElement('canvas');
+    const localCtx = localCanvas.getContext('2d');
     let frameInterval = null;
 
     async function initMedia() {
@@ -650,11 +653,8 @@
           for (let i = 0; i < inputData.length; i++) sum += Math.abs(inputData[i]);
           const avg = sum / inputData.length;
           const localCard = document.getElementById('card-local');
-          if (avg > 0.04) {
-            localCard.classList.add('speaking');
-          } else {
-            localCard.classList.remove('speaking');
-          }
+          if (avg > 0.04) localCard.classList.add('speaking');
+          else localCard.classList.remove('speaking');
 
           const int16 = new Int16Array(inputData.length);
           for (let i = 0; i < inputData.length; i++) {
@@ -710,24 +710,45 @@
       }
     }
 
+    // ─── Captura y Envío Eficiente de Frames (Binario Puro - Cero Base64) ────────
     function startFrameStreaming() {
       if (frameInterval) clearInterval(frameInterval);
+
       frameInterval = setInterval(() => {
         if (!socket || !socket.connected || !isCallStartedByHost) return;
-        const videoEl = document.getElementById('localVideo');
-        if (!videoEl || (isCamOff && !isSharingScreen)) return;
+
+        const videoEl = isSharingScreen ? screenVideo : document.getElementById('localVideo');
+        if (!videoEl || (!isSharingScreen && isCamOff)) return;
 
         try {
-          ctx.drawImage(videoEl, 0, 0, canvas.width, canvas.height);
-          const frame = canvas.toDataURL('image/jpeg', 0.55);
-          socket.emit('call-video-frame', {
-            roomId,
-            frame,
-            isScreen: isSharingScreen,
-            senderName: userName
-          });
+          if (isSharingScreen && videoEl.videoWidth) {
+            // Alta Resolución Full HD para Pantalla Compartida (Cero borrosidad)
+            localCanvas.width = videoEl.videoWidth;
+            localCanvas.height = videoEl.videoHeight;
+          } else {
+            // Resolución estándar para webcam
+            localCanvas.width = 640;
+            localCanvas.height = 360;
+          }
+
+          localCtx.drawImage(videoEl, 0, 0, localCanvas.width, localCanvas.height);
+
+          // Calidad alta (0.88) para que el código sea nítido en pantalla compartida
+          const quality = isSharingScreen ? 0.88 : 0.65;
+
+          // Envío directo como Blob binario (evita 1600+ requests base64 en la pestaña Network)
+          localCanvas.toBlob((blob) => {
+            if (blob && socket && socket.connected) {
+              socket.emit('call-video-frame', {
+                roomId,
+                frame: blob,
+                isScreen: isSharingScreen,
+                senderName: userName
+              });
+            }
+          }, 'image/jpeg', quality);
         } catch (e) {}
-      }, 55); // ~18 FPS
+      }, isSharingScreen ? 70 : 60); // ~15 FPS para pantalla HD, ~17 FPS para webcam
     }
 
     function getOrCreateRemoteCard(userId, name) {
@@ -739,9 +760,10 @@
         card.className = 'video-card';
         card.dataset.userId = userId;
 
+        // Usamos un <canvas> de alto rendimiento en vez de <img> para renderizado binario directo
         card.innerHTML = `
           <button class="btn-spotlight" onclick="setSpotlight('${cardId}')">⛶ Maximizar</button>
-          <img id="img-${userId}" style="display:none;" />
+          <canvas id="canvas-${userId}" style="display:none;"></canvas>
           <div id="ph-${userId}" class="placeholder">
             <span class="placeholder-icon">📷</span>
             <span>Esperando video de ${name}...</span>
@@ -864,7 +886,6 @@
           data.participants.forEach(p => getOrCreateRemoteCard(p.id, p.name));
         }
 
-        // Si la llamada NO ha sido iniciada por el anfitrión y somos invitados
         if (!data.isCallActive && !isHost) {
           isCallStartedByHost = false;
           document.getElementById('waitingForHostModal').style.display = 'flex';
@@ -887,22 +908,37 @@
         getOrCreateRemoteCard(peer.id, peer.name);
       });
 
-      socket.on('call-video-frame', (data) => {
+      // ─── Recepción y Renderizado Binario Ultrarrápido sobre Canvas ─────────
+      socket.on('call-video-frame', async (data) => {
         const { senderUserId, senderName, frame, isScreen } = data;
         const card = getOrCreateRemoteCard(senderUserId, senderName || 'Compañero');
 
-        const img = document.getElementById('img-' + senderUserId);
-        if (img) {
-          img.src = frame;
-          img.style.display = 'block';
-          const ph = document.getElementById('ph-' + senderUserId);
-          if (ph) ph.style.display = 'none';
+        const canvasEl = document.getElementById('canvas-' + senderUserId);
+        if (canvasEl && frame) {
+          try {
+            // El frame llega como Blob o ArrayBuffer binario
+            const blob = frame instanceof Blob ? frame : new Blob([frame], { type: 'image/jpeg' });
+            const bitmap = await createImageBitmap(blob);
 
-          const badge = document.getElementById('badge-' + senderUserId);
-          if (badge) {
-            badge.innerText = isScreen ? '🖥️ Pantalla' : '🟢 En Vivo HD';
-            badge.style.color = isScreen ? '#38bdf8' : '#22c55e';
-          }
+            if (canvasEl.width !== bitmap.width || canvasEl.height !== bitmap.height) {
+              canvasEl.width = bitmap.width;
+              canvasEl.height = bitmap.height;
+            }
+
+            const rCtx = canvasEl.getContext('2d');
+            rCtx.drawImage(bitmap, 0, 0);
+            bitmap.close();
+
+            canvasEl.style.display = 'block';
+            const ph = document.getElementById('ph-' + senderUserId);
+            if (ph) ph.style.display = 'none';
+
+            const badge = document.getElementById('badge-' + senderUserId);
+            if (badge) {
+              badge.innerText = isScreen ? '🖥️ Pantalla HD' : '🟢 En Vivo HD';
+              badge.style.color = isScreen ? '#38bdf8' : '#22c55e';
+            }
+          } catch (err) {}
         }
 
         const prevData = remoteParticipants.get(senderUserId);
@@ -945,13 +981,26 @@
       }
     }
 
+    // ─── Compartir Pantalla en Alta Definición (Full HD) ─────────────────────
     async function toggleShare() {
       if (!isSharingScreen) {
         try {
           screenStream = await navigator.mediaDevices.getDisplayMedia({
-            video: { cursor: 'always', displaySurface: 'monitor' },
+            video: {
+              cursor: 'always',
+              displaySurface: 'monitor',
+              width: { ideal: 1920, max: 2560 },
+              height: { ideal: 1080, max: 1440 },
+              frameRate: { ideal: 20, max: 30 }
+            },
             audio: false
           });
+
+          screenVideo = document.createElement('video');
+          screenVideo.srcObject = screenStream;
+          screenVideo.autoplay = true;
+          screenVideo.muted = true;
+          await screenVideo.play();
 
           const localVideo = document.getElementById('localVideo');
           localVideo.srcObject = screenStream;
@@ -962,7 +1011,7 @@
           btn.innerText = '🛑 Detener Pantalla';
           btn.className = 'btn-ctrl btn-danger';
 
-          document.getElementById('localStatus').innerText = '🖥️ Compartiendo';
+          document.getElementById('localStatus').innerText = '🖥️ Compartiendo HD';
           document.getElementById('localStatus').style.color = '#38bdf8';
 
           setSpotlight('card-local');
@@ -981,6 +1030,10 @@
         screenStream.getTracks().forEach(t => t.stop());
         screenStream = null;
       }
+      if (screenVideo) {
+        screenVideo.srcObject = null;
+        screenVideo = null;
+      }
       if (localStream) {
         const localVideo = document.getElementById('localVideo');
         localVideo.srcObject = localStream;
@@ -988,7 +1041,7 @@
       }
       isSharingScreen = false;
       const btn = document.getElementById('btnShare');
-      btn.innerText = '🖥️ Compartir Pantalla';
+      btn.innerText = '🖥️ Compartir Pantalla HD';
       btn.className = 'btn-ctrl btn-accent';
       document.getElementById('localStatus').innerText = 'Local HD';
       document.getElementById('localStatus').style.color = '#a1a1aa';
