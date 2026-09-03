@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>LivecodeAE — Videollamada & Voz en Vivo</title>
+  <title>LivecodeAE — Sala Colaborativa en Vivo</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <style>
@@ -17,22 +17,24 @@
       flex-direction: column;
       align-items: center;
       justify-content: space-between;
-      padding: 16px;
+      padding: 14px 18px;
       overflow-x: hidden;
     }
 
+    /* ─── Header ─────────────────────────────────────────────────────────────── */
     header {
       width: 100%;
-      max-width: 1100px;
+      max-width: 1300px;
       display: flex;
       align-items: center;
       justify-content: space-between;
-      padding: 12px 20px;
-      background: rgba(24, 24, 27, 0.75);
-      backdrop-filter: blur(12px);
+      padding: 10px 18px;
+      background: rgba(24, 24, 27, 0.85);
+      backdrop-filter: blur(14px);
       border: 1px solid rgba(255, 255, 255, 0.08);
-      border-radius: 16px;
-      margin-bottom: 16px;
+      border-radius: 14px;
+      margin-bottom: 14px;
+      gap: 12px;
     }
 
     .logo {
@@ -40,7 +42,7 @@
       align-items: center;
       gap: 10px;
       font-weight: 800;
-      font-size: 16px;
+      font-size: 15px;
       color: #38bdf8;
     }
 
@@ -58,6 +60,7 @@
       border-radius: 20px;
       font-size: 12px;
       font-weight: 700;
+      letter-spacing: 0.5px;
     }
 
     .security-badge {
@@ -71,53 +74,163 @@
       border-radius: 20px;
       font-size: 11px;
       font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .security-badge:hover {
+      background: rgba(34, 197, 94, 0.2);
     }
 
-    .status-badge {
+    .header-right {
       display: flex;
       align-items: center;
-      gap: 8px;
+      gap: 12px;
+    }
+
+    .view-mode-group {
+      display: flex;
+      background: #18181b;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 10px;
+      padding: 2px;
+      gap: 2px;
+    }
+    .btn-view-mode {
+      background: transparent;
+      border: none;
+      color: #a1a1aa;
+      padding: 6px 12px;
+      border-radius: 8px;
+      font-size: 11px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .btn-view-mode.active, .btn-view-mode:hover {
+      background: #27272a;
+      color: #f4f4f5;
+    }
+    .btn-view-mode.active {
+      color: #38bdf8;
+    }
+
+    .participants-count {
       font-size: 12px;
       color: #a1a1aa;
+      display: flex;
+      align-items: center;
+      gap: 6px;
     }
-    .status-dot {
+    .dot-online {
       width: 8px;
       height: 8px;
       border-radius: 50%;
-      background: #eab308;
-      box-shadow: 0 0 10px #eab308;
-    }
-    .status-dot.connected {
       background: #22c55e;
-      box-shadow: 0 0 12px #22c55e;
+      box-shadow: 0 0 8px #22c55e;
     }
 
+    /* ─── Main Container ──────────────────────────────────────────────────────── */
     main {
       width: 100%;
-      max-width: 1100px;
+      max-width: 1300px;
       flex: 1;
+      display: flex;
+      gap: 16px;
+      align-items: stretch;
+      justify-content: center;
+      transition: all 0.3s ease;
+    }
+
+    /* MODO 1: Cuadrícula estándar (Grid Mode) */
+    main.mode-grid {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
       gap: 16px;
-      align-items: center;
-      justify-content: center;
+      align-content: center;
     }
 
+    /* MODO 2: Spotlight / Sidebar (Pantalla Principal Grande + Barra Lateral) */
+    main.mode-spotlight {
+      display: flex;
+      flex-direction: row;
+      gap: 16px;
+    }
+    main.mode-spotlight #spotlightStage {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 480px;
+    }
+    main.mode-spotlight #sidebarFilmstrip {
+      width: 280px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      overflow-y: auto;
+      max-height: 75vh;
+      padding-right: 4px;
+    }
+    main.mode-spotlight #sidebarFilmstrip .video-card {
+      aspect-ratio: 16 / 10;
+      height: 180px;
+    }
+
+    /* MODO 3: Avatares Redondos / Burbujas (Discord / Meet Circles) */
+    main.mode-bubbles {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 24px;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+    main.mode-bubbles .video-card {
+      width: 200px !important;
+      height: 200px !important;
+      aspect-ratio: 1 / 1 !important;
+      border-radius: 50% !important;
+      box-shadow: 0 8px 30px rgba(56, 189, 248, 0.2);
+    }
+    main.mode-bubbles .video-card img,
+    main.mode-bubbles .video-card video {
+      border-radius: 50%;
+      object-fit: cover;
+    }
+    main.mode-bubbles .user-tag {
+      bottom: -10px;
+      left: 50%;
+      transform: translateX(-50%);
+      font-size: 11px;
+      padding: 4px 10px;
+      border-radius: 20px;
+    }
+    main.mode-bubbles .btn-spotlight {
+      display: none;
+    }
+
+    /* ─── Video Card ─────────────────────────────────────────────────────────── */
     .video-card {
       position: relative;
       width: 100%;
       aspect-ratio: 16 / 10;
       background: #18181b;
       border: 2px solid rgba(255, 255, 255, 0.08);
-      border-radius: 20px;
+      border-radius: 18px;
       overflow: hidden;
       display: flex;
       align-items: center;
       justify-content: center;
       box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+      transition: all 0.3s ease;
     }
 
-    .video-card video, .video-card img, .video-card canvas {
+    .video-card.speaking {
+      border-color: #22c55e !important;
+      box-shadow: 0 0 24px rgba(34, 197, 94, 0.45);
+    }
+
+    .video-card video, .video-card img {
       width: 100%;
       height: 100%;
       object-fit: cover;
@@ -132,7 +245,7 @@
       display: flex;
       flex-direction: column;
       align-items: center;
-      gap: 12px;
+      gap: 10px;
       color: #71717a;
       font-size: 13px;
       text-align: center;
@@ -140,7 +253,7 @@
       z-index: 2;
     }
     .placeholder-icon {
-      font-size: 40px;
+      font-size: 38px;
     }
 
     .user-tag {
@@ -150,8 +263,8 @@
       background: rgba(0, 0, 0, 0.75);
       backdrop-filter: blur(8px);
       color: #fff;
-      padding: 6px 14px;
-      border-radius: 12px;
+      padding: 6px 12px;
+      border-radius: 10px;
       font-size: 12px;
       font-weight: 600;
       display: flex;
@@ -175,27 +288,53 @@
 
     .connection-overlay {
       position: absolute;
-      top: 12px;
-      right: 12px;
+      top: 10px;
+      right: 10px;
       background: rgba(0, 0, 0, 0.7);
       backdrop-filter: blur(8px);
       padding: 4px 10px;
-      border-radius: 10px;
+      border-radius: 8px;
       font-size: 11px;
       color: #a1a1aa;
       border: 1px solid rgba(255, 255, 255, 0.08);
       z-index: 5;
     }
 
+    .btn-spotlight {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      background: rgba(0, 0, 0, 0.65);
+      backdrop-filter: blur(8px);
+      color: #f4f4f5;
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      padding: 6px 10px;
+      border-radius: 8px;
+      font-size: 11px;
+      font-weight: 700;
+      cursor: pointer;
+      opacity: 0;
+      transition: all 0.2s;
+      z-index: 10;
+    }
+    .video-card:hover .btn-spotlight {
+      opacity: 1;
+    }
+    .btn-spotlight:hover {
+      background: #0284c7;
+      border-color: #38bdf8;
+    }
+
+    /* ─── Footer Controls ─────────────────────────────────────────────────────── */
     footer {
       width: 100%;
-      max-width: 1100px;
+      max-width: 1300px;
       display: flex;
       align-items: center;
       justify-content: center;
-      gap: 14px;
-      padding: 16px;
-      margin-top: 16px;
+      gap: 12px;
+      padding: 14px;
+      margin-top: 14px;
       flex-wrap: wrap;
     }
 
@@ -203,8 +342,8 @@
       display: flex;
       align-items: center;
       gap: 8px;
-      padding: 12px 20px;
-      border-radius: 14px;
+      padding: 10px 18px;
+      border-radius: 12px;
       border: none;
       font-size: 13px;
       font-weight: 700;
@@ -232,12 +371,59 @@
       color: #fff;
     }
 
-    .e2e-info {
-      font-size: 11px;
-      color: #71717a;
-      text-align: center;
+    /* ─── Modal de Seguridad ──────────────────────────────────────────────────── */
+    .modal-backdrop {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.8);
+      backdrop-filter: blur(10px);
+      z-index: 1000;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+    .modal-card {
+      background: #18181b;
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: 20px;
+      max-width: 600px;
       width: 100%;
-      margin-top: 6px;
+      padding: 24px;
+      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.7);
+    }
+    .modal-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 16px;
+      font-size: 16px;
+      font-weight: 700;
+      color: #38bdf8;
+    }
+    .modal-close {
+      background: transparent;
+      border: none;
+      color: #a1a1aa;
+      font-size: 20px;
+      cursor: pointer;
+    }
+    .modal-body {
+      font-size: 13px;
+      color: #d4d4d8;
+      line-height: 1.6;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .modal-code {
+      background: #09090b;
+      padding: 10px 14px;
+      border-radius: 10px;
+      font-family: monospace;
+      font-size: 12px;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      color: #22c55e;
     }
   </style>
   <script src="/socket.io/socket.io.js"></script>
@@ -246,23 +432,36 @@
   <header>
     <div class="logo">
       <span>⚡ LivecodeAE</span>
-      <span style="font-size: 12px; color: #71717a; font-weight: 500;">Cámara & Voz en Vivo</span>
+      <span style="font-size: 12px; color: #71717a; font-weight: 500;">Sala Colaborativa Multi-Usuario</span>
     </div>
+
     <div class="header-center">
       <div class="room-tag" id="roomLabel">Sala: ...</div>
-      <div class="security-badge" title="Túnel seguro encriptado HTTPS/WSS en puerto 443">
-        🔒 Canal Seguro WSS 443
+      <div class="security-badge" onclick="openSecurityModal()" title="Haz clic para ver detalles de seguridad y cifrado">
+        🔒 Canal WSS 443 Cifrado (Auditar)
       </div>
     </div>
-    <div class="status-badge">
-      <span class="status-dot" id="statusDot"></span>
-      <span id="statusText">Conectando...</span>
+
+    <div class="header-right">
+      <div class="participants-count">
+        <span class="dot-online"></span>
+        <span id="participantsText">1 programador</span>
+      </div>
+
+      <!-- Selector de Modos de Vista -->
+      <div class="view-mode-group">
+        <button class="btn-view-mode active" id="btnModeGrid" onclick="setViewMode('grid')">▦ Cuadrícula</button>
+        <button class="btn-view-mode" id="btnModeSpotlight" onclick="setViewMode('spotlight')">⛶ Spotlight</button>
+        <button class="btn-view-mode" id="btnModeBubbles" onclick="setViewMode('bubbles')">⚪ Círculos</button>
+      </div>
     </div>
   </header>
 
-  <main>
-    <!-- Tu video local -->
-    <div class="video-card">
+  <!-- Contenedor Principal Adaptativo -->
+  <main id="mainContainer" class="mode-grid">
+    <!-- Tu tarjeta local (Webcam / Pantalla) -->
+    <div class="video-card" id="card-local" data-user-id="local">
+      <button class="btn-spotlight" onclick="setSpotlight('card-local')">⛶ Maximizar</button>
       <video id="localVideo" class="mirrored" autoplay muted playsinline></video>
       <div id="localPlaceholder" class="placeholder">
         <span class="placeholder-icon">📷</span>
@@ -272,33 +471,42 @@
         <span class="mic-dot" id="localMicDot"></span>
         <span id="localNameLabel">Tú</span>
       </div>
-      <div class="connection-overlay" id="localResolution">Local HD</div>
+      <div class="connection-overlay" id="localStatus">Local HD</div>
     </div>
 
-    <!-- Video remoto del compañero (Renderizado en tiempo real) -->
-    <div class="video-card">
-      <img id="remoteImg" style="display:none;" />
-      <div id="remotePlaceholder" class="placeholder">
-        <span class="placeholder-icon">⌛</span>
-        <span id="remoteStatusMsg">Esperando a tu compañero...</span>
-      </div>
-      <div class="user-tag">
-        <span class="mic-dot" id="remoteMicDot"></span>
-        <span id="remoteNameLabel">Compañero</span>
-      </div>
-      <div class="connection-overlay" id="remoteP2PState">Esperando...</div>
-    </div>
+    <!-- Contenedores para modo Spotlight -->
+    <div id="spotlightStage" style="display:none;"></div>
+    <div id="sidebarFilmstrip" style="display:none;"></div>
   </main>
 
   <footer>
     <button class="btn-ctrl btn-primary" id="btnMic" onclick="toggleMic()">🎙️ Micrófono ON</button>
     <button class="btn-ctrl btn-primary" id="btnCam" onclick="toggleCam()">📹 Cámara ON</button>
     <button class="btn-ctrl btn-accent" id="btnShare" onclick="toggleShare()">🖥️ Compartir Pantalla</button>
+    <button class="btn-ctrl btn-primary" id="btnCycleView" onclick="cycleViewMode()">📐 Cambiar Vista</button>
     <button class="btn-ctrl btn-danger" onclick="hangup()">❌ Salir</button>
-    <div class="e2e-info">
-      🛡️ <b>Transmisión Segura por WebSocket TLS (Puerto 443):</b> Funciona a través de cualquier cortafuegos institucional, proxy o red universitaria.
-    </div>
   </footer>
+
+  <!-- Modal de Verificación de Privacidad y Seguridad -->
+  <div class="modal-backdrop" id="securityModal" onclick="closeSecurityModal(event)">
+    <div class="modal-card" onclick="event.stopPropagation()">
+      <div class="modal-header">
+        <span>🛡️ Auditoría de Privacidad y Cifrado LivecodeAE</span>
+        <button class="modal-close" onclick="closeSecurityModal()">&times;</button>
+      </div>
+      <div class="modal-body">
+        <p><b>1. Cifrado de Transporte TLS 1.3:</b> Todo el flujo de voz (PCM), video e intercambio de código se transmite exclusivamente sobre conexiones cifradas <code>wss://</code> y <code>https://</code> en el puerto 443.</p>
+        <p><b>2. Memoria Efímera (Cero Grabación):</b> El servidor relay no escribe ni almacena video ni audio en base de datos ni en disco duro. Los paquetes se retransmiten en memoria RAM exclusivamente a los programadores autenticados en esta sala.</p>
+        <p><b>3. Cómo puedes comprobarlo tú mismo ahora mismo:</b></p>
+        <div class="modal-code">
+          1. Presiona F12 en tu navegador para abrir "Herramientas de Desarrollador".<br>
+          2. Ve a la pestaña "Red" (Network) y selecciona el filtro "WS" (WebSockets).<br>
+          3. Haz clic en la conexión de LivecodeAE y selecciona "Mensajes" (Messages).<br>
+          4. Verás que todos los datos viajan sobre el canal seguro encriptado WSS.
+        </div>
+      </div>
+    </div>
+  </div>
 
   <script>
     const params = new URLSearchParams(window.location.search);
@@ -315,12 +523,19 @@
     let isSharingScreen = false;
     let socket = null;
 
-    // Audio context para capturar y reproducir voz en tiempo real con latencia ultrabaja
+    // Estado de participantes remotos: Map(userId -> { name, element, lastFrame, isScreen })
+    const remoteParticipants = new Map();
+
+    // Modo de vista actual: 'grid' | 'spotlight' | 'bubbles'
+    let currentViewMode = 'grid';
+    let currentSpotlightCardId = null;
+
+    // Audio context (16 kHz VoIP PCM)
     let audioInputCtx = null;
     let audioOutputCtx = null;
     let nextAudioPlayTime = 0;
 
-    // Canvas para capturar frames de video a 18 FPS
+    // Canvas para emisión de frames a ~18 FPS
     const canvas = document.createElement('canvas');
     canvas.width = 640;
     canvas.height = 360;
@@ -330,41 +545,30 @@
     async function initMedia() {
       try {
         localStream = await navigator.mediaDevices.getUserMedia({
-          video: {
-            width: { ideal: 640 },
-            height: { ideal: 360 },
-            frameRate: { ideal: 20, max: 24 }
-          },
-          audio: {
-            echoCancellation: true,
-            noiseSuppression: true,
-            autoGainControl: true
-          }
+          video: { width: { ideal: 640 }, height: { ideal: 360 }, frameRate: { ideal: 20, max: 24 } },
+          audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true }
         });
 
         const localVideo = document.getElementById('localVideo');
         localVideo.srcObject = localStream;
         document.getElementById('localPlaceholder').style.display = 'none';
 
-        // Inicializar captura de voz
         setupAudioInput(localStream);
       } catch (err) {
-        console.warn('[LivecodeAE] Permiso de cámara/mic:', err);
-        document.getElementById('localPlaceholder').innerHTML = '<span style="color:#ef4444; font-weight:bold;">⚠️ Permiso requerido</span><br><span style="font-size:11px;">Permite el acceso en el candado del navegador</span>';
+        console.warn('[LivecodeAE] Permiso cámara/mic:', err);
+        document.getElementById('localPlaceholder').innerHTML = '<span style="color:#ef4444; font-weight:bold;">⚠️ Permiso requerido</span><br><span style="font-size:11px;">Permite acceso en el candado del navegador</span>';
       }
 
       connectSocket();
       startFrameStreaming();
     }
 
-    // ─── Captura y Procesamiento de Voz PCM (16 kHz - Ultra rápida) ───────────────
+    // ─── Audio Input PCM ───────────────────────────────────────────────────────
     function setupAudioInput(stream) {
       try {
         const AudioCtx = window.AudioContext || window.webkitAudioContext;
         audioInputCtx = new AudioCtx({ sampleRate: 16000 });
         const source = audioInputCtx.createMediaStreamSource(stream);
-
-        // Procesador de 2048 muestras (128 ms de audio por paquete)
         const processor = audioInputCtx.createScriptProcessor(2048, 1, 1);
         source.connect(processor);
         processor.connect(audioInputCtx.destination);
@@ -373,38 +577,55 @@
           if (isMicMuted || !socket || !socket.connected) return;
           const inputData = e.inputBuffer.getChannelData(0);
 
-          // Convertir Float32 a Int16 para reducir ancho de banda a 32 KB/s
+          // Detectar si estamos hablando para encender el halo verde
+          let sum = 0;
+          for (let i = 0; i < inputData.length; i++) sum += Math.abs(inputData[i]);
+          const avg = sum / inputData.length;
+          const localCard = document.getElementById('card-local');
+          if (avg > 0.04) {
+            localCard.classList.add('speaking');
+          } else {
+            localCard.classList.remove('speaking');
+          }
+
           const int16 = new Int16Array(inputData.length);
           for (let i = 0; i < inputData.length; i++) {
             int16[i] = Math.max(-1, Math.min(1, inputData[i])) * 0x7FFF;
           }
 
-          socket.emit('call-audio-pcm', {
-            roomId,
-            pcm: int16.buffer
-          });
+          socket.emit('call-audio-pcm', { roomId, pcm: int16.buffer });
         };
-      } catch (err) {
-        console.warn('[LivecodeAE] Error iniciando audio input:', err);
+      } catch (e) {
+        console.warn('Audio input error:', e);
       }
     }
 
-    // ─── Reproducción de Voz Recibida (Web Audio API) ────────────────────────────
-    function playRemoteAudio(arrayBuffer) {
+    // ─── Audio Output PCM ──────────────────────────────────────────────────────
+    function playRemoteAudio(senderId, arrayBuffer) {
       try {
         if (!audioOutputCtx) {
           const AudioCtx = window.AudioContext || window.webkitAudioContext;
           audioOutputCtx = new AudioCtx({ sampleRate: 16000 });
         }
-
         if (audioOutputCtx.state === 'suspended') {
           audioOutputCtx.resume();
         }
 
         const int16 = new Int16Array(arrayBuffer);
         const float32 = new Float32Array(int16.length);
+        let sum = 0;
         for (let i = 0; i < int16.length; i++) {
-          float32[i] = int16[i] / 0x7FFF;
+          const val = int16[i] / 0x7FFF;
+          float32[i] = val;
+          sum += Math.abs(val);
+        }
+
+        // Iluminar la tarjeta del que está hablando
+        const avg = sum / int16.length;
+        const remoteCard = document.getElementById('card-' + senderId);
+        if (remoteCard) {
+          if (avg > 0.04) remoteCard.classList.add('speaking');
+          else remoteCard.classList.remove('speaking');
         }
 
         const audioBuffer = audioOutputCtx.createBuffer(1, float32.length, 16000);
@@ -415,119 +636,224 @@
         source.connect(audioOutputCtx.destination);
 
         const now = audioOutputCtx.currentTime;
-        if (nextAudioPlayTime < now) {
-          nextAudioPlayTime = now;
-        }
+        if (nextAudioPlayTime < now) nextAudioPlayTime = now;
         source.start(nextAudioPlayTime);
         nextAudioPlayTime += audioBuffer.duration;
       } catch (e) {
-        console.warn('[LivecodeAE] Error reproduciendo audio PCM:', e);
+        console.warn('Audio play error:', e);
       }
     }
 
-    // ─── Transmisión de Frames de Video (18 FPS en tiempo real) ───────────────────
+    // ─── Emisión de Video Frames ───────────────────────────────────────────────
     function startFrameStreaming() {
       if (frameInterval) clearInterval(frameInterval);
-
       frameInterval = setInterval(() => {
         if (!socket || !socket.connected) return;
-
-        const videoEl = isSharingScreen
-          ? document.getElementById('localVideo')
-          : document.getElementById('localVideo');
-
+        const videoEl = document.getElementById('localVideo');
         if (!videoEl || (isCamOff && !isSharingScreen)) return;
 
         try {
           ctx.drawImage(videoEl, 0, 0, canvas.width, canvas.height);
           const frame = canvas.toDataURL('image/jpeg', 0.55);
-
           socket.emit('call-video-frame', {
             roomId,
             frame,
-            isScreen: isSharingScreen
+            isScreen: isSharingScreen,
+            senderName: userName
           });
         } catch (e) {}
       }, 55); // ~18 FPS
     }
 
-    // ─── Conexión WebSocket ──────────────────────────────────────────────────────
+    // ─── Gestión Dinámica de Participantes (Multi-Usuario) ─────────────────────
+    function getOrCreateRemoteCard(userId, name) {
+      const cardId = 'card-' + userId;
+      let card = document.getElementById(cardId);
+      if (!card) {
+        card = document.createElement('div');
+        card.id = cardId;
+        card.className = 'video-card';
+        card.dataset.userId = userId;
+
+        card.innerHTML = `
+          <button class="btn-spotlight" onclick="setSpotlight('${cardId}')">⛶ Maximizar</button>
+          <img id="img-${userId}" style="display:none;" />
+          <div id="ph-${userId}" class="placeholder">
+            <span class="placeholder-icon">📷</span>
+            <span>Esperando video de ${name}...</span>
+          </div>
+          <div class="user-tag">
+            <span class="mic-dot"></span>
+            <span>${name}</span>
+          </div>
+          <div class="connection-overlay" id="badge-${userId}">En Vivo</div>
+        `;
+
+        // Añadir al contenedor según el modo activo
+        const main = document.getElementById('mainContainer');
+        if (currentViewMode === 'spotlight') {
+          document.getElementById('sidebarFilmstrip').appendChild(card);
+        } else {
+          main.appendChild(card);
+        }
+
+        remoteParticipants.set(userId, { name, element: card, isScreen: false });
+        updateParticipantsCount();
+      }
+      return card;
+    }
+
+    function removeRemoteCard(userId) {
+      const card = document.getElementById('card-' + userId);
+      if (card) {
+        // Si el usuario en spotlight salió, regresar a grid
+        if (currentSpotlightCardId === 'card-' + userId) {
+          setViewMode('grid');
+        }
+        card.remove();
+      }
+      remoteParticipants.delete(userId);
+      updateParticipantsCount();
+    }
+
+    function updateParticipantsCount() {
+      const total = 1 + remoteParticipants.size;
+      document.getElementById('participantsText').innerText =
+        total + (total === 1 ? ' programador' : ' programadores');
+    }
+
+    // ─── Modos de Vista & Spotlight ────────────────────────────────────────────
+    function setViewMode(mode) {
+      currentViewMode = mode;
+      const main = document.getElementById('mainContainer');
+      const spotlightStage = document.getElementById('spotlightStage');
+      const sidebarFilmstrip = document.getElementById('sidebarFilmstrip');
+
+      // Botones activos
+      document.getElementById('btnModeGrid').classList.toggle('active', mode === 'grid');
+      document.getElementById('btnModeSpotlight').classList.toggle('active', mode === 'spotlight');
+      document.getElementById('btnModeBubbles').classList.toggle('active', mode === 'bubbles');
+
+      main.className = 'mode-' + mode;
+
+      if (mode === 'spotlight') {
+        spotlightStage.style.display = 'flex';
+        sidebarFilmstrip.style.display = 'flex';
+
+        // Si no hay tarjeta seleccionada, seleccionar por defecto la primera pantalla compartida o la local
+        if (!currentSpotlightCardId) {
+          let chosen = null;
+          remoteParticipants.forEach((data, uId) => {
+            if (data.isScreen) chosen = 'card-' + uId;
+          });
+          if (!chosen && remoteParticipants.size > 0) {
+            chosen = 'card-' + Array.from(remoteParticipants.keys())[0];
+          }
+          currentSpotlightCardId = chosen || 'card-local';
+        }
+
+        layoutSpotlight();
+      } else {
+        // Reintegrar todas las tarjetas al main
+        currentSpotlightCardId = null;
+        spotlightStage.style.display = 'none';
+        sidebarFilmstrip.style.display = 'none';
+
+        const allCards = document.querySelectorAll('.video-card');
+        allCards.forEach(card => main.appendChild(card));
+      }
+    }
+
+    function setSpotlight(cardId) {
+      currentSpotlightCardId = cardId;
+      setViewMode('spotlight');
+    }
+
+    function layoutSpotlight() {
+      const spotlightStage = document.getElementById('spotlightStage');
+      const sidebarFilmstrip = document.getElementById('sidebarFilmstrip');
+
+      const allCards = document.querySelectorAll('.video-card');
+      allCards.forEach(card => {
+        if (card.id === currentSpotlightCardId) {
+          spotlightStage.appendChild(card);
+        } else {
+          sidebarFilmstrip.appendChild(card);
+        }
+      });
+    }
+
+    function cycleViewMode() {
+      if (currentViewMode === 'grid') setViewMode('spotlight');
+      else if (currentViewMode === 'spotlight') setViewMode('bubbles');
+      else setViewMode('grid');
+    }
+
+    // ─── Conexión Socket.IO ────────────────────────────────────────────────────
     function connectSocket() {
       socket = io();
 
       socket.on('connect', () => {
-        console.log('[LivecodeAE Call] Conectado. ID:', socket.id);
-        document.getElementById('statusDot').className = 'status-dot connected';
-        document.getElementById('statusText').innerText = 'En Línea';
-
-        socket.emit('join-call', {
-          roomId,
-          name: userName
-        });
+        socket.emit('join-call', { roomId, name: userName });
       });
 
       socket.on('call-joined', (data) => {
-        console.log('[LivecodeAE Call] Participantes:', data.participants);
-        if (data.participants && data.participants.length > 0) {
-          const peer = data.participants[0];
-          document.getElementById('remoteNameLabel').innerText = peer.name;
-          document.getElementById('remoteP2PState').innerText = '🟢 Conectado';
-          document.getElementById('remoteP2PState').style.color = '#22c55e';
-          document.getElementById('remoteStatusMsg').innerText = 'Recibiendo transmisión de ' + peer.name + '...';
+        if (data.participants) {
+          data.participants.forEach(p => getOrCreateRemoteCard(p.id, p.name));
         }
       });
 
       socket.on('caller-joined', (peer) => {
-        console.log('[LivecodeAE Call] Nuevo participante entró:', peer);
-        document.getElementById('remoteNameLabel').innerText = peer.name;
-        document.getElementById('remoteP2PState').innerText = '🟢 Conectado';
-        document.getElementById('remoteP2PState').style.color = '#22c55e';
-        document.getElementById('remoteStatusMsg').innerText = 'Recibiendo transmisión de ' + peer.name + '...';
+        getOrCreateRemoteCard(peer.id, peer.name);
       });
 
-      // Recibir frames de video / pantalla compartida
+      // Recepción de frames de video / pantalla compartida
       socket.on('call-video-frame', (data) => {
-        const remoteImg = document.getElementById('remoteImg');
-        remoteImg.src = data.frame;
-        remoteImg.style.display = 'block';
-        document.getElementById('remotePlaceholder').style.display = 'none';
+        const { senderUserId, senderName, frame, isScreen } = data;
+        const card = getOrCreateRemoteCard(senderUserId, senderName || 'Compañero');
 
-        const badge = document.getElementById('remoteP2PState');
-        if (data.isScreen) {
-          badge.innerText = '🖥️ Pantalla Compartida';
-          badge.style.color = '#38bdf8';
-          remoteImg.classList.remove('mirrored');
-        } else {
-          badge.innerText = '🟢 En Vivo HD';
-          badge.style.color = '#22c55e';
-          remoteImg.classList.remove('mirrored');
+        const img = document.getElementById('img-' + senderUserId);
+        if (img) {
+          img.src = frame;
+          img.style.display = 'block';
+          const ph = document.getElementById('ph-' + senderUserId);
+          if (ph) ph.style.display = 'none';
+
+          const badge = document.getElementById('badge-' + senderUserId);
+          if (badge) {
+            badge.innerText = isScreen ? '🖥️ Pantalla' : '🟢 En Vivo HD';
+            badge.style.color = isScreen ? '#38bdf8' : '#22c55e';
+          }
+        }
+
+        // Auto-Spotlight si alguien comienza a compartir pantalla
+        const prevData = remoteParticipants.get(senderUserId);
+        if (prevData && !prevData.isScreen && isScreen) {
+          prevData.isScreen = true;
+          setSpotlight('card-' + senderUserId);
         }
       });
 
-      // Recibir paquetes de audio PCM
+      // Recepción de voz PCM
       socket.on('call-audio-pcm', (data) => {
         if (data.pcm) {
-          playRemoteAudio(data.pcm);
+          playRemoteAudio(data.senderUserId, data.pcm);
         }
       });
 
-      socket.on('caller-left', () => {
-        const remoteImg = document.getElementById('remoteImg');
-        remoteImg.style.display = 'none';
-        document.getElementById('remotePlaceholder').style.display = 'flex';
-        document.getElementById('remoteStatusMsg').innerText = 'Tu compañero ha salido de la sala.';
-        document.getElementById('remoteP2PState').innerText = 'Desconectado';
-        document.getElementById('remoteP2PState').style.color = '#a1a1aa';
+      socket.on('caller-left', (peer) => {
+        removeRemoteCard(peer.id);
       });
     }
 
-    // ─── Controles de Usuario ───────────────────────────────────────────────────
+    // ─── Controles ─────────────────────────────────────────────────────────────
     function toggleMic() {
       isMicMuted = !isMicMuted;
       const btn = document.getElementById('btnMic');
       btn.innerText = isMicMuted ? '🔇 Micrófono MUTE' : '🎙️ Micrófono ON';
       btn.className = isMicMuted ? 'btn-ctrl btn-primary active' : 'btn-ctrl btn-primary';
       document.getElementById('localMicDot').className = isMicMuted ? 'mic-dot muted' : 'mic-dot';
+      if (isMicMuted) document.getElementById('card-local').classList.remove('speaking');
     }
 
     function toggleCam() {
@@ -560,9 +886,15 @@
           btn.innerText = '🛑 Detener Pantalla';
           btn.className = 'btn-ctrl btn-danger';
 
+          document.getElementById('localStatus').innerText = '🖥️ Compartiendo';
+          document.getElementById('localStatus').style.color = '#38bdf8';
+
+          // Ponernos a nosotros mismos en spotlight al compartir
+          setSpotlight('card-local');
+
           screenStream.getVideoTracks()[0].onended = () => stopScreenShare();
         } catch (e) {
-          console.warn('[LivecodeAE] Error compartiendo pantalla:', e);
+          console.warn('Error compartiendo pantalla:', e);
         }
       } else {
         stopScreenShare();
@@ -583,9 +915,17 @@
       const btn = document.getElementById('btnShare');
       btn.innerText = '🖥️ Compartir Pantalla';
       btn.className = 'btn-ctrl btn-accent';
+      document.getElementById('localStatus').innerText = 'Local HD';
+      document.getElementById('localStatus').style.color = '#a1a1aa';
     }
 
-    // Desbloquear audio con cualquier clic
+    function openSecurityModal() {
+      document.getElementById('securityModal').style.display = 'flex';
+    }
+    function closeSecurityModal() {
+      document.getElementById('securityModal').style.display = 'none';
+    }
+
     document.addEventListener('click', () => {
       if (audioOutputCtx && audioOutputCtx.state === 'suspended') {
         audioOutputCtx.resume();

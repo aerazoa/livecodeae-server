@@ -304,8 +304,10 @@ io.on('connection', (socket) => {
   socket.on('call-video-frame', (data) => {
     const { roomId, frame, isScreen } = data;
     if (roomId) {
+      const senderName = callRooms.get(roomId)?.get(userId) || data.senderName || 'Programador';
       socket.to('call_' + roomId).emit('call-video-frame', {
         senderUserId: userId,
+        senderName,
         frame,
         isScreen
       });
