@@ -411,6 +411,11 @@ io.on('connection', (socket) => {
     socket.to(roomId).emit('voice-speaking', { userId, speaking: !!speaking });
   });
 
+  socket.on('voice-mute-toggle', (data) => {
+    const { roomId, name, muted } = data;
+    io.to(roomId).emit('voice-mute-command', { name, muted });
+  });
+
   socket.on('voice-reaction', (data) => {
     const { roomId, emoji } = data;
     io.to(roomId).emit('voice-reaction', { userId, emoji });

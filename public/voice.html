@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>LivecodeAE Audio Bridge (48 kHz Studio)</title>
+  <title>Permiso de Micrófono — LivecodeAE Spaces</title>
   <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
   <style>
     :root {
@@ -25,136 +25,76 @@
       align-items: center;
       justify-content: center;
       min-height: 100vh;
-      padding: 12px;
+      padding: 16px;
       user-select: none;
       overflow: hidden;
     }
-    .widget-box {
+    .permission-card {
       background: var(--card);
       border: 1px solid var(--border);
       border-radius: 16px;
-      padding: 16px;
+      padding: 20px;
       width: 100%;
-      max-width: 280px;
+      max-width: 320px;
       text-align: center;
       box-shadow: 0 10px 30px rgba(0, 0, 0, 0.6);
     }
-    .header {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      margin-bottom: 12px;
+    .icon-mic {
+      font-size: 38px;
+      margin-bottom: 10px;
+      animation: bounce 1.2s infinite;
     }
-    .badge-live {
-      background: rgba(34, 197, 94, 0.15);
-      border: 1px solid rgba(34, 197, 94, 0.3);
-      color: var(--accent-green);
-      font-size: 10px;
+    @keyframes bounce {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(-6px); }
+    }
+    .title {
+      font-size: 14px;
       font-weight: 800;
-      padding: 2px 8px;
-      border-radius: 999px;
-      display: flex;
-      align-items: center;
-      gap: 4px;
+      background: linear-gradient(90deg, #38bdf8, #22c55e);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      margin-bottom: 6px;
     }
-    .dot {
-      width: 6px;
-      height: 6px;
-      background: var(--accent-green);
-      border-radius: 50%;
-      animation: pulse 1.2s infinite;
-    }
-    @keyframes pulse {
-      0%, 100% { transform: scale(1); opacity: 1; }
-      50% { transform: scale(0.8); opacity: 0.4; }
-    }
-    .room-title {
+    .desc {
       font-size: 11px;
-      font-family: monospace;
+      color: var(--muted);
+      line-height: 1.4;
+      margin-bottom: 16px;
+    }
+    .status-badge {
+      background: rgba(56, 189, 248, 0.15);
+      border: 1px solid rgba(56, 189, 248, 0.3);
       color: var(--accent-cyan);
-    }
-    .avatar-wrapper {
-      position: relative;
-      width: 68px;
-      height: 68px;
-      margin: 0 auto 10px auto;
-    }
-    .avatar-img {
-      width: 100%;
-      height: 100%;
-      border-radius: 50%;
-      object-fit: cover;
-      border: 3px solid var(--accent-cyan);
-      transition: all 0.2s;
-    }
-    .avatar-wrapper.speaking .avatar-img {
-      border-color: var(--accent-green);
-      box-shadow: 0 0 0 6px rgba(34, 197, 94, 0.3);
-    }
-    .user-name {
-      font-size: 13px;
+      font-size: 11px;
       font-weight: 700;
-      margin-bottom: 2px;
+      padding: 8px 12px;
+      border-radius: 8px;
     }
-    .status-note {
-      font-size: 10px;
-      color: var(--muted);
-      margin-bottom: 14px;
-    }
-    .btn-toggle-mic {
+    .btn-manual-allow {
       width: 100%;
-      padding: 10px;
-      border-radius: 999px;
-      font-size: 12px;
-      font-weight: 800;
-      border: none;
-      cursor: pointer;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 8px;
-      transition: all 0.2s;
-    }
-    .btn-toggle-mic.unmuted {
-      background: var(--accent-green);
+      background: linear-gradient(90deg, #22c55e, #38bdf8);
       color: #000;
-      box-shadow: 0 0 12px rgba(34, 197, 94, 0.35);
-    }
-    .btn-toggle-mic.muted {
-      background: var(--accent-rose);
-      color: #fff;
-    }
-    .tip-footer {
-      font-size: 9px;
-      color: var(--muted);
-      margin-top: 10px;
-      line-height: 1.3;
+      border: none;
+      font-weight: 800;
+      font-size: 12px;
+      padding: 10px;
+      border-radius: 8px;
+      cursor: pointer;
+      margin-top: 12px;
+      display: none;
     }
   </style>
 </head>
 <body>
-  <div class="widget-box">
-    <div class="header">
-      <div class="badge-live">
-        <span class="dot"></span> 48 kHz HD
-      </div>
-      <span class="room-title" id="roomLabel"></span>
+  <div class="permission-card">
+    <div class="icon-mic" id="micIcon">🎙️</div>
+    <div class="title">LivecodeAE Spaces</div>
+    <div class="desc">
+      Presiona <strong>"Permitir"</strong> cuando el navegador te lo solicite. Una vez dado el permiso, esta ventana desaparecerá automáticamente.
     </div>
-
-    <div class="avatar-wrapper" id="avatarWrapper">
-      <img id="avatarImg" class="avatar-img" src="" alt="Avatar" />
-    </div>
-
-    <div class="user-name" id="userNameLabel">Conectando...</div>
-    <div class="status-note" id="statusNote">Iniciando audio de alta fidelidad...</div>
-
-    <button class="btn-toggle-mic unmuted" id="btnMic" onclick="toggleMute()">
-      <span id="micIcon">🎙️</span> <span id="micText">Micrófono HD Activo</span>
-    </button>
-
-    <div class="tip-footer">
-      💡 Audio en segundo plano sincronizado con LivecodeAE Spaces dentro de VS Code.
-    </div>
+    <div class="status-badge" id="statusBadge">Esperando permiso del micrófono...</div>
+    <button class="btn-manual-allow" id="btnManual" onclick="initMic()">👉 Conceder Permiso Ahora</button>
   </div>
 
   <script>
@@ -162,20 +102,13 @@
     const roomId = (urlParams.get('room') || 'GENERAL').toUpperCase().trim();
     const userName = urlParams.get('name') || 'Programador LivecodeAE';
 
-    document.getElementById('roomLabel').innerText = roomId;
-    document.getElementById('userNameLabel').innerText = userName;
-    document.getElementById('avatarImg').src = 'https://api.dicebear.com/7.x/personas/svg?seed=' + encodeURIComponent(userName);
-
     let socket = null;
     let localStream = null;
     let audioInCtx = null;
-    let audioOutCtx = null;
     let isMuted = false;
-
-    // Alta Fidelidad: 48 kHz Studio Quality
     const SAMPLE_RATE = 48000;
 
-    async function init() {
+    async function initMic() {
       try {
         localStream = await navigator.mediaDevices.getUserMedia({
           audio: {
@@ -188,37 +121,54 @@
           video: false
         });
 
-        document.getElementById('statusNote').innerText = '48 kHz HD • Audio Estudio sin eco';
+        document.getElementById('statusBadge').innerText = '✅ ¡Micrófono Autorizado! Ocultando ventana...';
+        document.getElementById('statusBadge').style.borderColor = 'rgba(34, 197, 94, 0.5)';
+        document.getElementById('statusBadge').style.color = 'var(--accent-green)';
+        document.getElementById('micIcon').innerText = '🟢';
 
-        socket = io({ transports: ['websocket', 'polling'] });
+        setupSocketAndAudio(localStream);
 
-        socket.on('connect', () => {
-          socket.emit('join-room', {
-            roomId,
-            name: userName,
-            isVoiceOnly: true
-          });
-          socket.emit('voice-join', { roomId });
-        });
+        // Ocultar ventana automáticamente: el control queda 100% en VS Code
+        setTimeout(() => {
+          try {
+            window.moveTo(-32000, -32000);
+            window.resizeTo(1, 1);
+            window.blur();
+          } catch(e) {}
+        }, 500);
 
-        socket.on('voice-audio-pcm', (data) => {
-          if (data.senderUserId !== socket.id) {
-            playRemoteAudio(data.pcm);
-          }
-        });
-
-        setupRecording(localStream);
       } catch (err) {
-        document.getElementById('statusNote').innerText = 'Micrófono no autorizado';
-        document.getElementById('statusNote').style.color = 'var(--accent-rose)';
+        document.getElementById('statusBadge').innerText = '⚠️ Por favor haz clic en Permitir Micrófono';
+        document.getElementById('statusBadge').style.color = 'var(--accent-rose)';
+        document.getElementById('btnManual').style.display = 'block';
       }
     }
 
-    function setupRecording(stream) {
+    function setupSocketAndAudio(stream) {
+      socket = io({ transports: ['websocket', 'polling'] });
+
+      socket.on('connect', () => {
+        socket.emit('join-room', {
+          roomId,
+          name: userName,
+          isVoiceOnly: true
+        });
+        socket.emit('voice-join', {
+          roomId,
+          name: userName
+        });
+      });
+
+      // Control remoto de mute desde VS Code
+      socket.on('voice-mute-command', (data) => {
+        if (data.name && data.name.trim().toLowerCase() === userName.trim().toLowerCase()) {
+          isMuted = !!data.muted;
+        }
+      });
+
       const AudioCtx = window.AudioContext || window.webkitAudioContext;
       audioInCtx = new AudioCtx({ sampleRate: SAMPLE_RATE });
       const source = audioInCtx.createMediaStreamSource(stream);
-      // Tamaño de buffer 2048 a 48 kHz = 42ms de latencia ultra baja
       const proc = audioInCtx.createScriptProcessor(2048, 1, 1);
       source.connect(proc);
       proc.connect(audioInCtx.destination);
@@ -231,12 +181,8 @@
         for (let i = 0; i < input.length; i++) sum += input[i] * input[i];
         const rms = Math.sqrt(sum / input.length);
 
-        const wrap = document.getElementById('avatarWrapper');
         if (rms > 0.02) {
-          wrap.classList.add('speaking');
           socket.emit('voice-speaking', { roomId, speaking: true });
-        } else {
-          wrap.classList.remove('speaking');
         }
 
         const int16 = new Int16Array(input.length);
@@ -247,46 +193,9 @@
       };
     }
 
-    function playRemoteAudio(pcmArray) {
-      try {
-        if (!audioOutCtx) {
-          const AudioCtx = window.AudioContext || window.webkitAudioContext;
-          audioOutCtx = new AudioCtx({ sampleRate: SAMPLE_RATE });
-        }
-        if (audioOutCtx.state === 'suspended') audioOutCtx.resume();
-
-        const buffer = audioOutCtx.createBuffer(1, pcmArray.length, SAMPLE_RATE);
-        const channel = buffer.getChannelData(0);
-        for (let i = 0; i < pcmArray.length; i++) {
-          channel[i] = pcmArray[i] / 32767;
-        }
-
-        const source = audioOutCtx.createBufferSource();
-        source.buffer = buffer;
-        source.connect(audioOutCtx.destination);
-        source.start();
-      } catch (e) {}
-    }
-
-    function toggleMute() {
-      isMuted = !isMuted;
-      const btn = document.getElementById('btnMic');
-      const icon = document.getElementById('micIcon');
-      const text = document.getElementById('micText');
-      if (isMuted) {
-        btn.className = 'btn-toggle-mic muted';
-        icon.innerText = '🔇';
-        text.innerText = 'Silenciado';
-        document.getElementById('avatarWrapper').classList.remove('speaking');
-        if (socket) socket.emit('voice-speaking', { roomId, speaking: false });
-      } else {
-        btn.className = 'btn-toggle-mic unmuted';
-        icon.innerText = '🎙️';
-        text.innerText = 'Micrófono HD Activo';
-      }
-    }
-
-    init();
+    // Auto-iniciar la petición de permiso
+    window.addEventListener('DOMContentLoaded', initMic);
+    setTimeout(initMic, 200);
   </script>
 </body>
 </html>
