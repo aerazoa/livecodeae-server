@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>LivecodeAE — Videollamada P2P Segura & Voz</title>
+  <title>LivecodeAE — Videollamada & Voz en Vivo</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <style>
@@ -91,10 +91,6 @@
       background: #22c55e;
       box-shadow: 0 0 12px #22c55e;
     }
-    .status-dot.failed {
-      background: #ef4444;
-      box-shadow: 0 0 12px #ef4444;
-    }
 
     main {
       width: 100%;
@@ -121,7 +117,7 @@
       box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
     }
 
-    .video-card video {
+    .video-card video, .video-card img, .video-card canvas {
       width: 100%;
       height: 100%;
       object-fit: cover;
@@ -141,6 +137,7 @@
       font-size: 13px;
       text-align: center;
       padding: 20px;
+      z-index: 2;
     }
     .placeholder-icon {
       font-size: 40px;
@@ -188,22 +185,6 @@
       color: #a1a1aa;
       border: 1px solid rgba(255, 255, 255, 0.08);
       z-index: 5;
-    }
-
-    #audioUnlockBanner {
-      display: none;
-      width: 100%;
-      max-width: 1100px;
-      background: linear-gradient(90deg, #f59e0b, #d97706);
-      color: #000;
-      padding: 10px 20px;
-      border-radius: 12px;
-      font-size: 12px;
-      font-weight: 700;
-      text-align: center;
-      margin-bottom: 12px;
-      cursor: pointer;
-      box-shadow: 0 4px 15px rgba(245, 158, 11, 0.4);
     }
 
     footer {
@@ -265,23 +246,19 @@
   <header>
     <div class="logo">
       <span>⚡ LivecodeAE</span>
-      <span style="font-size: 12px; color: #71717a; font-weight: 500;">Cámara & Voz P2P</span>
+      <span style="font-size: 12px; color: #71717a; font-weight: 500;">Cámara & Voz en Vivo</span>
     </div>
     <div class="header-center">
       <div class="room-tag" id="roomLabel">Sala: ...</div>
-      <div class="security-badge" title="Cifrado DTLS-SRTP de extremo a extremo sin servidores intermedios">
-        🔒 E2EE Cifrado P2P
+      <div class="security-badge" title="Túnel seguro encriptado HTTPS/WSS en puerto 443">
+        🔒 Canal Seguro WSS 443
       </div>
     </div>
     <div class="status-badge">
       <span class="status-dot" id="statusDot"></span>
-      <span id="statusText">Conectando señal...</span>
+      <span id="statusText">Conectando...</span>
     </div>
   </header>
-
-  <div id="audioUnlockBanner" onclick="unlockAudio()">
-    🔊 Tu navegador silenció el audio entrante. Haz clic aquí para escuchar a tu compañero de equipo.
-  </div>
 
   <main>
     <!-- Tu video local -->
@@ -298,18 +275,18 @@
       <div class="connection-overlay" id="localResolution">Local HD</div>
     </div>
 
-    <!-- Video remoto del compañero -->
+    <!-- Video remoto del compañero (Renderizado en tiempo real) -->
     <div class="video-card">
-      <video id="remoteVideo" autoplay playsinline></video>
+      <img id="remoteImg" style="display:none;" />
       <div id="remotePlaceholder" class="placeholder">
         <span class="placeholder-icon">⌛</span>
-        <span id="remoteStatusMsg">Esperando que tu compañero ingrese a la sala...</span>
+        <span id="remoteStatusMsg">Esperando a tu compañero...</span>
       </div>
       <div class="user-tag">
         <span class="mic-dot" id="remoteMicDot"></span>
         <span id="remoteNameLabel">Compañero</span>
       </div>
-      <div class="connection-overlay" id="remoteP2PState">P2P: Esperando</div>
+      <div class="connection-overlay" id="remoteP2PState">Esperando...</div>
     </div>
   </main>
 
@@ -319,7 +296,7 @@
     <button class="btn-ctrl btn-accent" id="btnShare" onclick="toggleShare()">🖥️ Compartir Pantalla</button>
     <button class="btn-ctrl btn-danger" onclick="hangup()">❌ Salir</button>
     <div class="e2e-info">
-      🛡️ <b>Canal Cifrado DTLS / SRTP (AES-128/256):</b> Con servidores STUN y TURN de alta disponibilidad en puertos 80 y 443 (Firewall-Friendly).
+      🛡️ <b>Transmisión Segura por WebSocket TLS (Puerto 443):</b> Funciona a través de cualquier cortafuegos institucional, proxy o red universitaria.
     </div>
   </footer>
 
@@ -332,53 +309,31 @@
     document.getElementById('localNameLabel').innerText = userName + ' (Tú)';
 
     let localStream = null;
-    let peerConnection = null;
-    let remoteStream = null;
+    let screenStream = null;
     let isMicMuted = false;
     let isCamOff = false;
     let isSharingScreen = false;
     let socket = null;
-    let remoteUserId = null;
 
-    let iceCandidateQueue = [];
+    // Audio context para capturar y reproducir voz en tiempo real con latencia ultrabaja
+    let audioInputCtx = null;
+    let audioOutputCtx = null;
+    let nextAudioPlayTime = 0;
 
-    const rtcConfig = {
-      iceServers: [
-        { urls: 'stun:stun.l.google.com:19302' },
-        { urls: 'stun:stun1.l.google.com:19302' },
-        { urls: 'stun:stun2.l.google.com:19302' },
-        { urls: 'stun:openrelay.metered.ca:80' },
-        {
-          urls: 'turn:openrelay.metered.ca:80',
-          username: 'openrelayproject',
-          credential: 'openrelayproject'
-        },
-        {
-          urls: 'turn:openrelay.metered.ca:443',
-          username: 'openrelayproject',
-          credential: 'openrelayproject'
-        },
-        {
-          urls: 'turn:openrelay.metered.ca:443?transport=tcp',
-          username: 'openrelayproject',
-          credential: 'openrelayproject'
-        },
-        {
-          urls: 'turns:openrelay.metered.ca:443?transport=tcp',
-          username: 'openrelayproject',
-          credential: 'openrelayproject'
-        }
-      ],
-      iceCandidatePoolSize: 10
-    };
+    // Canvas para capturar frames de video a 18 FPS
+    const canvas = document.createElement('canvas');
+    canvas.width = 640;
+    canvas.height = 360;
+    const ctx = canvas.getContext('2d');
+    let frameInterval = null;
 
     async function initMedia() {
       try {
         localStream = await navigator.mediaDevices.getUserMedia({
           video: {
             width: { ideal: 640 },
-            height: { ideal: 480 },
-            frameRate: { ideal: 24, max: 30 }
+            height: { ideal: 360 },
+            frameRate: { ideal: 20, max: 24 }
           },
           audio: {
             echoCancellation: true,
@@ -390,19 +345,118 @@
         const localVideo = document.getElementById('localVideo');
         localVideo.srcObject = localStream;
         document.getElementById('localPlaceholder').style.display = 'none';
+
+        // Inicializar captura de voz
+        setupAudioInput(localStream);
       } catch (err) {
         console.warn('[LivecodeAE] Permiso de cámara/mic:', err);
-        document.getElementById('localPlaceholder').innerHTML = '<span style="color:#ef4444; font-weight:bold;">⚠️ Permiso requerido</span><br><span style="font-size:11px;">Permite el acceso a la cámara en el candado del navegador</span>';
+        document.getElementById('localPlaceholder').innerHTML = '<span style="color:#ef4444; font-weight:bold;">⚠️ Permiso requerido</span><br><span style="font-size:11px;">Permite el acceso en el candado del navegador</span>';
       }
 
       connectSocket();
+      startFrameStreaming();
     }
 
+    // ─── Captura y Procesamiento de Voz PCM (16 kHz - Ultra rápida) ───────────────
+    function setupAudioInput(stream) {
+      try {
+        const AudioCtx = window.AudioContext || window.webkitAudioContext;
+        audioInputCtx = new AudioCtx({ sampleRate: 16000 });
+        const source = audioInputCtx.createMediaStreamSource(stream);
+
+        // Procesador de 2048 muestras (128 ms de audio por paquete)
+        const processor = audioInputCtx.createScriptProcessor(2048, 1, 1);
+        source.connect(processor);
+        processor.connect(audioInputCtx.destination);
+
+        processor.onaudioprocess = (e) => {
+          if (isMicMuted || !socket || !socket.connected) return;
+          const inputData = e.inputBuffer.getChannelData(0);
+
+          // Convertir Float32 a Int16 para reducir ancho de banda a 32 KB/s
+          const int16 = new Int16Array(inputData.length);
+          for (let i = 0; i < inputData.length; i++) {
+            int16[i] = Math.max(-1, Math.min(1, inputData[i])) * 0x7FFF;
+          }
+
+          socket.emit('call-audio-pcm', {
+            roomId,
+            pcm: int16.buffer
+          });
+        };
+      } catch (err) {
+        console.warn('[LivecodeAE] Error iniciando audio input:', err);
+      }
+    }
+
+    // ─── Reproducción de Voz Recibida (Web Audio API) ────────────────────────────
+    function playRemoteAudio(arrayBuffer) {
+      try {
+        if (!audioOutputCtx) {
+          const AudioCtx = window.AudioContext || window.webkitAudioContext;
+          audioOutputCtx = new AudioCtx({ sampleRate: 16000 });
+        }
+
+        if (audioOutputCtx.state === 'suspended') {
+          audioOutputCtx.resume();
+        }
+
+        const int16 = new Int16Array(arrayBuffer);
+        const float32 = new Float32Array(int16.length);
+        for (let i = 0; i < int16.length; i++) {
+          float32[i] = int16[i] / 0x7FFF;
+        }
+
+        const audioBuffer = audioOutputCtx.createBuffer(1, float32.length, 16000);
+        audioBuffer.copyToChannel(float32, 0);
+
+        const source = audioOutputCtx.createBufferSource();
+        source.buffer = audioBuffer;
+        source.connect(audioOutputCtx.destination);
+
+        const now = audioOutputCtx.currentTime;
+        if (nextAudioPlayTime < now) {
+          nextAudioPlayTime = now;
+        }
+        source.start(nextAudioPlayTime);
+        nextAudioPlayTime += audioBuffer.duration;
+      } catch (e) {
+        console.warn('[LivecodeAE] Error reproduciendo audio PCM:', e);
+      }
+    }
+
+    // ─── Transmisión de Frames de Video (18 FPS en tiempo real) ───────────────────
+    function startFrameStreaming() {
+      if (frameInterval) clearInterval(frameInterval);
+
+      frameInterval = setInterval(() => {
+        if (!socket || !socket.connected) return;
+
+        const videoEl = isSharingScreen
+          ? document.getElementById('localVideo')
+          : document.getElementById('localVideo');
+
+        if (!videoEl || (isCamOff && !isSharingScreen)) return;
+
+        try {
+          ctx.drawImage(videoEl, 0, 0, canvas.width, canvas.height);
+          const frame = canvas.toDataURL('image/jpeg', 0.55);
+
+          socket.emit('call-video-frame', {
+            roomId,
+            frame,
+            isScreen: isSharingScreen
+          });
+        } catch (e) {}
+      }, 55); // ~18 FPS
+    }
+
+    // ─── Conexión WebSocket ──────────────────────────────────────────────────────
     function connectSocket() {
       socket = io();
 
       socket.on('connect', () => {
-        console.log('[LivecodeAE Call] Conectado al servidor de llamadas. ID:', socket.id);
+        console.log('[LivecodeAE Call] Conectado. ID:', socket.id);
         document.getElementById('statusDot').className = 'status-dot connected';
         document.getElementById('statusText').innerText = 'En Línea';
 
@@ -412,238 +466,68 @@
         });
       });
 
-      // Si nos unimos y ya hay alguien en la llamada
       socket.on('call-joined', (data) => {
-        console.log('[LivecodeAE Call] call-joined:', data);
+        console.log('[LivecodeAE Call] Participantes:', data.participants);
         if (data.participants && data.participants.length > 0) {
           const peer = data.participants[0];
-          remoteUserId = peer.id;
-          document.getElementById('remoteNameLabel').innerText = peer.name || 'Compañero';
-          document.getElementById('remoteStatusMsg').innerText = 'Iniciando conexión P2P con ' + peer.name + '...';
-          startCall(remoteUserId);
+          document.getElementById('remoteNameLabel').innerText = peer.name;
+          document.getElementById('remoteP2PState').innerText = '🟢 Conectado';
+          document.getElementById('remoteP2PState').style.color = '#22c55e';
+          document.getElementById('remoteStatusMsg').innerText = 'Recibiendo transmisión de ' + peer.name + '...';
         }
       });
 
-      // Si entra un nuevo compañero después de nosotros
       socket.on('caller-joined', (peer) => {
-        console.log('[LivecodeAE Call] Nuevo participante:', peer);
-        remoteUserId = peer.id;
-        document.getElementById('remoteNameLabel').innerText = peer.name || 'Compañero';
-        document.getElementById('remoteStatusMsg').innerText = 'Conectando con ' + peer.name + '...';
-        // Esperamos su oferta limpiamente
+        console.log('[LivecodeAE Call] Nuevo participante entró:', peer);
+        document.getElementById('remoteNameLabel').innerText = peer.name;
+        document.getElementById('remoteP2PState').innerText = '🟢 Conectado';
+        document.getElementById('remoteP2PState').style.color = '#22c55e';
+        document.getElementById('remoteStatusMsg').innerText = 'Recibiendo transmisión de ' + peer.name + '...';
       });
 
-      // Manejo de señales WebRTC
-      socket.on('call-signal-received', async (data) => {
-        const { senderUserId, signal } = data;
-        if (!signal) return;
-
-        console.log('[LivecodeAE Call] Señal recibida de ' + senderUserId + ':', signal.type);
-
-        if (signal.type === 'offer') {
-          remoteUserId = senderUserId;
-          await handleOffer(signal.sdp, senderUserId);
-        } else if (signal.type === 'answer') {
-          await handleAnswer(signal.sdp);
-        } else if (signal.type === 'candidate') {
-          await handleCandidate(signal.candidate);
-        } else if (signal.type === 'hangup') {
-          handleRemoteHangup();
-        }
-      });
-
-      socket.on('caller-left', (peer) => {
-        if (peer.id === remoteUserId) {
-          handleRemoteHangup();
-        }
-      });
-    }
-
-    function createPeerConnection(targetId) {
-      // Si ya existía una conexión previa, cerrarla limpiamente para no mezclar sesiones
-      if (peerConnection) {
-        console.log('[LivecodeAE Call] Cerrando conexión previa antes de crear nueva...');
-        try { peerConnection.close(); } catch(e) {}
-        peerConnection = null;
-      }
-      remoteStream = null;
-      iceCandidateQueue = [];
-
-      console.log('[LivecodeAE Call] Creando nueva RTCPeerConnection para:', targetId);
-      peerConnection = new RTCPeerConnection(rtcConfig);
-
-      // 1. Agregar pistas locales (Audio y Video)
-      if (localStream) {
-        localStream.getTracks().forEach(track => {
-          console.log('[LivecodeAE Call] Añadiendo pista local:', track.kind);
-          peerConnection.addTrack(track, localStream);
-        });
-      }
-
-      // 2. Manejo de candidatos ICE locales
-      peerConnection.onicecandidate = (event) => {
-        if (event.candidate && socket) {
-          socket.emit('call-signal', {
-            roomId,
-            targetUserId: targetId || remoteUserId,
-            signal: { type: 'candidate', candidate: event.candidate }
-          });
-        }
-      };
-
-      // 3. Monitoreo de estado de conexión P2P
-      peerConnection.onconnectionstatechange = () => {
-        const state = peerConnection.connectionState;
-        console.log('[LivecodeAE Call] Estado de conexión P2P:', state);
-        const badge = document.getElementById('remoteP2PState');
-        if (state === 'connected') {
-          badge.innerText = '🟢 P2P Cifrado OK';
-          badge.style.color = '#22c55e';
-          document.getElementById('remotePlaceholder').style.display = 'none';
-        } else if (state === 'connecting') {
-          badge.innerText = '🟡 Estableciendo P2P...';
-          badge.style.color = '#eab308';
-        } else if (state === 'failed' || state === 'disconnected') {
-          badge.innerText = '🔴 Reconectando P2P...';
-          badge.style.color = '#ef4444';
-          if (state === 'failed') {
-            peerConnection.restartIce();
-          }
-        }
-      };
-
-      // 4. Recepción de pistas remotas (Video / Audio de tu compañero)
-      // CLAVE: remoteStream persistente para NUNCA interrumpir play() ni causar AbortError
-      peerConnection.ontrack = (event) => {
-        console.log('[LivecodeAE Call] ¡Pista remota recibida!', event.track.kind);
-        const remoteVideo = document.getElementById('remoteVideo');
-        remoteVideo.muted = false;
-        remoteVideo.volume = 1.0;
-
-        if (!remoteStream) {
-          remoteStream = new MediaStream();
-          remoteVideo.srcObject = remoteStream;
-        }
-
-        // Agregar la pista solo si no está en el stream
-        if (!remoteStream.getTracks().some(t => t.id === event.track.id)) {
-          remoteStream.addTrack(event.track);
-        }
-
+      // Recibir frames de video / pantalla compartida
+      socket.on('call-video-frame', (data) => {
+        const remoteImg = document.getElementById('remoteImg');
+        remoteImg.src = data.frame;
+        remoteImg.style.display = 'block';
         document.getElementById('remotePlaceholder').style.display = 'none';
 
-        // Intentar reproducir si aún no está en play
-        remoteVideo.play().catch(err => {
-          console.warn('[LivecodeAE Call] Autoplay bloqueado temporalmente:', err);
-          document.getElementById('audioUnlockBanner').style.display = 'block';
-        });
-      };
-
-      return peerConnection;
-    }
-
-    async function startCall(targetId) {
-      const pc = createPeerConnection(targetId);
-      try {
-        const offer = await pc.createOffer({
-          offerToReceiveAudio: true,
-          offerToReceiveVideo: true
-        });
-        await pc.setLocalDescription(offer);
-        console.log('[LivecodeAE Call] Enviando oferta a:', targetId);
-
-        socket.emit('call-signal', {
-          roomId,
-          targetUserId: targetId,
-          signal: { type: 'offer', sdp: offer }
-        });
-      } catch (err) {
-        console.error('[LivecodeAE Call] Error en createOffer:', err);
-      }
-    }
-
-    async function handleOffer(sdp, senderId) {
-      const pc = createPeerConnection(senderId);
-      try {
-        await pc.setRemoteDescription(new RTCSessionDescription(sdp));
-        await processQueuedCandidates();
-
-        const answer = await pc.createAnswer();
-        await pc.setLocalDescription(answer);
-        console.log('[LivecodeAE Call] Enviando respuesta a:', senderId);
-
-        socket.emit('call-signal', {
-          roomId,
-          targetUserId: senderId,
-          signal: { type: 'answer', sdp: answer }
-        });
-      } catch (err) {
-        console.error('[LivecodeAE Call] Error en handleOffer:', err);
-      }
-    }
-
-    async function handleAnswer(sdp) {
-      if (!peerConnection) return;
-      try {
-        await peerConnection.setRemoteDescription(new RTCSessionDescription(sdp));
-        await processQueuedCandidates();
-      } catch (err) {
-        console.error('[LivecodeAE Call] Error en handleAnswer:', err);
-      }
-    }
-
-    async function handleCandidate(candidate) {
-      if (!candidate) return;
-
-      if (peerConnection && peerConnection.remoteDescription && peerConnection.remoteDescription.type) {
-        try {
-          await peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
-        } catch (err) {
-          console.warn('[LivecodeAE Call] Error agregando candidato ICE:', err);
+        const badge = document.getElementById('remoteP2PState');
+        if (data.isScreen) {
+          badge.innerText = '🖥️ Pantalla Compartida';
+          badge.style.color = '#38bdf8';
+          remoteImg.classList.remove('mirrored');
+        } else {
+          badge.innerText = '🟢 En Vivo HD';
+          badge.style.color = '#22c55e';
+          remoteImg.classList.remove('mirrored');
         }
-      } else {
-        iceCandidateQueue.push(candidate);
-      }
-    }
+      });
 
-    async function processQueuedCandidates() {
-      while (iceCandidateQueue.length > 0) {
-        const cand = iceCandidateQueue.shift();
-        try {
-          if (peerConnection) {
-            await peerConnection.addIceCandidate(new RTCIceCandidate(cand));
-          }
-        } catch (err) {
-          console.warn('[LivecodeAE Call] Error en candidato encolado:', err);
+      // Recibir paquetes de audio PCM
+      socket.on('call-audio-pcm', (data) => {
+        if (data.pcm) {
+          playRemoteAudio(data.pcm);
         }
-      }
+      });
+
+      socket.on('caller-left', () => {
+        const remoteImg = document.getElementById('remoteImg');
+        remoteImg.style.display = 'none';
+        document.getElementById('remotePlaceholder').style.display = 'flex';
+        document.getElementById('remoteStatusMsg').innerText = 'Tu compañero ha salido de la sala.';
+        document.getElementById('remoteP2PState').innerText = 'Desconectado';
+        document.getElementById('remoteP2PState').style.color = '#a1a1aa';
+      });
     }
 
-    function handleRemoteHangup() {
-      const remoteVideo = document.getElementById('remoteVideo');
-      remoteVideo.srcObject = null;
-      remoteStream = null;
-      document.getElementById('remotePlaceholder').style.display = 'flex';
-      document.getElementById('remoteStatusMsg').innerText = 'Tu compañero ha salido de la sala.';
-      document.getElementById('remoteP2PState').innerText = 'P2P: Desconectado';
-      if (peerConnection) {
-        try { peerConnection.close(); } catch(e) {}
-        peerConnection = null;
-      }
-      iceCandidateQueue = [];
-    }
-
+    // ─── Controles de Usuario ───────────────────────────────────────────────────
     function toggleMic() {
-      if (!localStream) return;
-      const audioTrack = localStream.getAudioTracks()[0];
-      if (audioTrack) {
-        isMicMuted = !isMicMuted;
-        audioTrack.enabled = !isMicMuted;
-        const btn = document.getElementById('btnMic');
-        btn.innerText = isMicMuted ? '🔇 Micrófono MUTE' : '🎙️ Micrófono ON';
-        btn.className = isMicMuted ? 'btn-ctrl btn-primary active' : 'btn-ctrl btn-primary';
-        document.getElementById('localMicDot').className = isMicMuted ? 'mic-dot muted' : 'mic-dot';
-      }
+      isMicMuted = !isMicMuted;
+      const btn = document.getElementById('btnMic');
+      btn.innerText = isMicMuted ? '🔇 Micrófono MUTE' : '🎙️ Micrófono ON';
+      btn.className = isMicMuted ? 'btn-ctrl btn-primary active' : 'btn-ctrl btn-primary';
+      document.getElementById('localMicDot').className = isMicMuted ? 'mic-dot muted' : 'mic-dot';
     }
 
     function toggleCam() {
@@ -662,46 +546,35 @@
     async function toggleShare() {
       if (!isSharingScreen) {
         try {
-          const screenStream = await navigator.mediaDevices.getDisplayMedia({
+          screenStream = await navigator.mediaDevices.getDisplayMedia({
             video: { cursor: 'always', displaySurface: 'monitor' },
             audio: false
           });
-          const screenTrack = screenStream.getVideoTracks()[0];
-
-          if (peerConnection) {
-            const senders = peerConnection.getSenders();
-            const videoSender = senders.find(s => s.track && s.track.kind === 'video') || senders[0];
-            if (videoSender) {
-              await videoSender.replaceTrack(screenTrack);
-            }
-          }
 
           const localVideo = document.getElementById('localVideo');
           localVideo.srcObject = screenStream;
           localVideo.classList.remove('mirrored');
           isSharingScreen = true;
-          document.getElementById('btnShare').innerText = '🛑 Detener Pantalla';
-          document.getElementById('btnShare').className = 'btn-ctrl btn-danger';
 
-          screenTrack.onended = () => stopScreenShare();
+          const btn = document.getElementById('btnShare');
+          btn.innerText = '🛑 Detener Pantalla';
+          btn.className = 'btn-ctrl btn-danger';
+
+          screenStream.getVideoTracks()[0].onended = () => stopScreenShare();
         } catch (e) {
-          console.warn('[LivecodeAE Call] Error al compartir pantalla:', e);
+          console.warn('[LivecodeAE] Error compartiendo pantalla:', e);
         }
       } else {
         stopScreenShare();
       }
     }
 
-    async function stopScreenShare() {
+    function stopScreenShare() {
+      if (screenStream) {
+        screenStream.getTracks().forEach(t => t.stop());
+        screenStream = null;
+      }
       if (localStream) {
-        const videoTrack = localStream.getVideoTracks()[0];
-        if (peerConnection && videoTrack) {
-          const senders = peerConnection.getSenders();
-          const videoSender = senders.find(s => s.track && s.track.kind === 'video') || senders[0];
-          if (videoSender) {
-            await videoSender.replaceTrack(videoTrack);
-          }
-        }
         const localVideo = document.getElementById('localVideo');
         localVideo.srcObject = localStream;
         localVideo.classList.add('mirrored');
@@ -712,41 +585,17 @@
       btn.className = 'btn-ctrl btn-accent';
     }
 
-    function unlockAudio() {
-      const remoteVideo = document.getElementById('remoteVideo');
-      remoteVideo.muted = false;
-      remoteVideo.volume = 1.0;
-      remoteVideo.play().then(() => {
-        document.getElementById('audioUnlockBanner').style.display = 'none';
-      }).catch(e => console.warn(e));
-    }
-
-    // Al hacer clic en cualquier parte de la ventana, asegurar que el audio remoto se reproduzca
+    // Desbloquear audio con cualquier clic
     document.addEventListener('click', () => {
-      const remoteVideo = document.getElementById('remoteVideo');
-      if (remoteVideo && remoteVideo.srcObject) {
-        remoteVideo.muted = false;
-        remoteVideo.volume = 1.0;
-        remoteVideo.play().then(() => {
-          document.getElementById('audioUnlockBanner').style.display = 'none';
-        }).catch(() => {});
+      if (audioOutputCtx && audioOutputCtx.state === 'suspended') {
+        audioOutputCtx.resume();
       }
     });
 
     function hangup() {
-      if (localStream) {
-        localStream.getTracks().forEach(t => t.stop());
-      }
-      if (peerConnection) {
-        try { peerConnection.close(); } catch(e) {}
-      }
-      if (socket) {
-        socket.emit('call-signal', {
-          roomId,
-          targetUserId: remoteUserId,
-          signal: { type: 'hangup' }
-        });
-      }
+      if (localStream) localStream.getTracks().forEach(t => t.stop());
+      if (screenStream) screenStream.getTracks().forEach(t => t.stop());
+      if (frameInterval) clearInterval(frameInterval);
       window.close();
     }
 

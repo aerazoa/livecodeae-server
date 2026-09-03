@@ -300,6 +300,28 @@ io.on('connection', (socket) => {
     }
   });
 
+  // Relay Multimedia Directo por WebSocket (Inmune a Firewalls y NAT Simétrico)
+  socket.on('call-video-frame', (data) => {
+    const { roomId, frame, isScreen } = data;
+    if (roomId) {
+      socket.to('call_' + roomId).emit('call-video-frame', {
+        senderUserId: userId,
+        frame,
+        isScreen
+      });
+    }
+  });
+
+  socket.on('call-audio-pcm', (data) => {
+    const { roomId, pcm } = data;
+    if (roomId) {
+      socket.to('call_' + roomId).emit('call-audio-pcm', {
+        senderUserId: userId,
+        pcm
+      });
+    }
+  });
+
   // 9. Desconexión
   socket.on('disconnect', () => {
     console.log(`[LivecodeAE] Desconectado: ${userId}`);
