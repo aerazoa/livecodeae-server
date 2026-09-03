@@ -389,6 +389,16 @@ io.on('connection', (socket) => {
     }
   });
 
+  socket.on('voice-speaking', (data) => {
+    const { roomId, speaking } = data;
+    socket.to(roomId).emit('voice-speaking', { userId, speaking: !!speaking });
+  });
+
+  socket.on('voice-reaction', (data) => {
+    const { roomId, emoji } = data;
+    io.to(roomId).emit('voice-reaction', { userId, emoji });
+  });
+
   // 10. Desconexión
   socket.on('disconnect', () => {
     console.log(`[LivecodeAE] Desconectado: ${userId}`);
