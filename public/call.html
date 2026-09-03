@@ -333,6 +333,7 @@
 
     let localStream = null;
     let peerConnection = null;
+    let remoteStream = null;
     let isMicMuted = false;
     let isCamOff = false;
     let isSharingScreen = false;
@@ -341,7 +342,6 @@
 
     let iceCandidateQueue = [];
 
-    // Servidores STUN y TURN (OpenRelay en puertos 80 y 443 TCP/UDP para atravesar firewalls universitarios y NAT simétrico)
     const rtcConfig = {
       iceServers: [
         { urls: 'stun:stun.l.google.com:19302' },
@@ -406,15 +406,13 @@
         document.getElementById('statusDot').className = 'status-dot connected';
         document.getElementById('statusText').innerText = 'En Línea';
 
-        // Unirse exclusivamente al canal de llamada (NO a la sala de código de VS Code)
         socket.emit('join-call', {
           roomId,
           name: userName
         });
       });
 
-      // CASO 1: Cuando nos unimos a una llamada donde YA HAY un compañero
-      // Nosotros iniciamos la llamada enviándole la oferta
+      // Si nos unimos y ya hay alguien en la llamada
       socket.on('call-joined', (data) => {
         console.log('[LivecodeAE Call] call-joined:', data);
         if (data.participants && data.participants.length > 0) {
@@ -422,20 +420,20 @@
           remoteUserId = peer.id;
           document.getElementById('remoteNameLabel').innerText = peer.name || 'Compañero';
           document.getElementById('remoteStatusMsg').innerText = 'Iniciando conexión P2P con ' + peer.name + '...';
-          console.log('[LivecodeAE Call] Iniciando llamada hacia:', peer.id, peer.name);
           startCall(remoteUserId);
         }
       });
 
-      // CASO 2: Cuando estamos en la llamada y un nuevo compañero ENTRA después de nosotros
+      // Si entra un nuevo compañero después de nosotros
       socket.on('caller-joined', (peer) => {
-        console.log('[LivecodeAE Call] Nuevo participante entró:', peer);
+        console.log('[LivecodeAE Call] Nuevo participante:', peer);
         remoteUserId = peer.id;
         document.getElementById('remoteNameLabel').innerText = peer.name || 'Compañero';
         document.getElementById('remoteStatusMsg').innerText = 'Conectando con ' + peer.name + '...';
+        // Esperamos su oferta limpiamente
       });
 
-      // Recibir mensajes de señalización WebRTC exclusivos de la llamada
+      // Manejo de señales WebRTC
       socket.on('call-signal-received', async (data) => {
         const { senderUserId, signal } = data;
         if (!signal) return;
@@ -462,9 +460,16 @@
     }
 
     function createPeerConnection(targetId) {
-      if (peerConnection) return peerConnection;
+      // Si ya existía una conexión previa, cerrarla limpiamente para no mezclar sesiones
+      if (peerConnection) {
+        console.log('[LivecodeAE Call] Cerrando conexión previa antes de crear nueva...');
+        try { peerConnection.close(); } catch(e) {}
+        peerConnection = null;
+      }
+      remoteStream = null;
+      iceCandidateQueue = [];
 
-      console.log('[LivecodeAE Call] Creando RTCPeerConnection...');
+      console.log('[LivecodeAE Call] Creando nueva RTCPeerConnection para:', targetId);
       peerConnection = new RTCPeerConnection(rtcConfig);
 
       // 1. Agregar pistas locales (Audio y Video)
@@ -508,27 +513,28 @@
       };
 
       // 4. Recepción de pistas remotas (Video / Audio de tu compañero)
+      // CLAVE: remoteStream persistente para NUNCA interrumpir play() ni causar AbortError
       peerConnection.ontrack = (event) => {
-        console.log('[LivecodeAE Call] ¡Pista remota recibida!', event.track.kind, event.streams);
+        console.log('[LivecodeAE Call] ¡Pista remota recibida!', event.track.kind);
         const remoteVideo = document.getElementById('remoteVideo');
-        remoteVideo.muted = false; // Permitir audio remoto
+        remoteVideo.muted = false;
+        remoteVideo.volume = 1.0;
 
-        if (event.streams && event.streams[0]) {
-          remoteVideo.srcObject = event.streams[0];
-        } else {
-          let stream = remoteVideo.srcObject;
-          if (!stream) {
-            stream = new MediaStream();
-            remoteVideo.srcObject = stream;
-          }
-          stream.addTrack(event.track);
+        if (!remoteStream) {
+          remoteStream = new MediaStream();
+          remoteVideo.srcObject = remoteStream;
+        }
+
+        // Agregar la pista solo si no está en el stream
+        if (!remoteStream.getTracks().some(t => t.id === event.track.id)) {
+          remoteStream.addTrack(event.track);
         }
 
         document.getElementById('remotePlaceholder').style.display = 'none';
 
-        // Iniciar reproducción y chequear bloqueo de audio
+        // Intentar reproducir si aún no está en play
         remoteVideo.play().catch(err => {
-          console.warn('[LivecodeAE Call] Autoplay de audio bloqueado por el navegador:', err);
+          console.warn('[LivecodeAE Call] Autoplay bloqueado temporalmente:', err);
           document.getElementById('audioUnlockBanner').style.display = 'block';
         });
       };
@@ -616,11 +622,12 @@
     function handleRemoteHangup() {
       const remoteVideo = document.getElementById('remoteVideo');
       remoteVideo.srcObject = null;
+      remoteStream = null;
       document.getElementById('remotePlaceholder').style.display = 'flex';
       document.getElementById('remoteStatusMsg').innerText = 'Tu compañero ha salido de la sala.';
       document.getElementById('remoteP2PState').innerText = 'P2P: Desconectado';
       if (peerConnection) {
-        peerConnection.close();
+        try { peerConnection.close(); } catch(e) {}
         peerConnection = null;
       }
       iceCandidateQueue = [];
@@ -656,10 +663,7 @@
       if (!isSharingScreen) {
         try {
           const screenStream = await navigator.mediaDevices.getDisplayMedia({
-            video: {
-              cursor: 'always',
-              displaySurface: 'monitor'
-            },
+            video: { cursor: 'always', displaySurface: 'monitor' },
             audio: false
           });
           const screenTrack = screenStream.getVideoTracks()[0];
@@ -711,16 +715,30 @@
     function unlockAudio() {
       const remoteVideo = document.getElementById('remoteVideo');
       remoteVideo.muted = false;
-      remoteVideo.play();
-      document.getElementById('audioUnlockBanner').style.display = 'none';
+      remoteVideo.volume = 1.0;
+      remoteVideo.play().then(() => {
+        document.getElementById('audioUnlockBanner').style.display = 'none';
+      }).catch(e => console.warn(e));
     }
+
+    // Al hacer clic en cualquier parte de la ventana, asegurar que el audio remoto se reproduzca
+    document.addEventListener('click', () => {
+      const remoteVideo = document.getElementById('remoteVideo');
+      if (remoteVideo && remoteVideo.srcObject) {
+        remoteVideo.muted = false;
+        remoteVideo.volume = 1.0;
+        remoteVideo.play().then(() => {
+          document.getElementById('audioUnlockBanner').style.display = 'none';
+        }).catch(() => {});
+      }
+    });
 
     function hangup() {
       if (localStream) {
         localStream.getTracks().forEach(t => t.stop());
       }
       if (peerConnection) {
-        peerConnection.close();
+        try { peerConnection.close(); } catch(e) {}
       }
       if (socket) {
         socket.emit('call-signal', {

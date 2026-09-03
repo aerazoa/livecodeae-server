@@ -10,6 +10,8 @@ app.use(express.static(path.join(__dirname, 'public')));
 
 const PORT = process.env.PORT || 4815;
 
+app.get('/favicon.ico', (req, res) => res.status(204).end());
+
 // ─── Rutas Web y Health check ─────────────────────────────────────────────────
 app.get('/call', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'call.html'));
