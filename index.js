@@ -13,6 +13,13 @@ const PORT = process.env.PORT || 4815;
 app.get('/favicon.ico', (req, res) => res.status(204).end());
 
 // ─── Rutas Web y Health check ─────────────────────────────────────────────────
+app.get('/voice', (req, res) => {
+  res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+  res.setHeader('Pragma', 'no-cache');
+  res.setHeader('Expires', '0');
+  res.sendFile(path.join(__dirname, 'public', 'voice.html'));
+});
+
 app.get('/call', (req, res) => {
   res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
   res.setHeader('Pragma', 'no-cache');
@@ -99,8 +106,8 @@ io.on('connection', (socket) => {
         readonlyForAllGuests: false,
         userPermissions: {}, // userId -> boolean (true = readonly, false = editor)
         voiceEnabled: true,
-        whiteboardEnabled: true,
-        whiteboardStrokes: [],
+        annotations: [],
+        focusMode: false,
         voiceUsers: new Set()
       });
       colorIndex.set(roomId, 0);
@@ -144,8 +151,8 @@ io.on('connection', (socket) => {
         readonlyForAllGuests: room.readonlyForAllGuests || false,
         userPermissions: room.userPermissions || {},
         voiceEnabled: room.voiceEnabled !== false,
-        whiteboardEnabled: room.whiteboardEnabled !== false,
-        whiteboardStrokes: room.whiteboardStrokes || []
+        annotations: room.annotations || [],
+        focusMode: room.focusMode || false
       }
     });
 
@@ -295,24 +302,47 @@ io.on('connection', (socket) => {
     }
   });
 
-  // 8. Pizarra de Arquitectura Colaborativa (Feature 5)
-  socket.on('whiteboard-stroke', (data) => {
-    const { roomId, stroke } = data;
+  // 8. Comentarios y Notas en Línea de Código (Feature 4)
+  socket.on('add-annotation', (data) => {
+    const { roomId, annotation } = data;
     const room = rooms.get(roomId);
-    if (room && room.whiteboardEnabled !== false) {
-      if (!room.whiteboardStrokes) room.whiteboardStrokes = [];
-      if (room.whiteboardStrokes.length > 800) room.whiteboardStrokes.shift();
-      room.whiteboardStrokes.push(stroke);
-      socket.to(roomId).emit('whiteboard-stroke', stroke);
+    if (room && annotation) {
+      if (!room.annotations) room.annotations = [];
+      room.annotations.push(annotation);
+      io.to(roomId).emit('annotations-updated', room.annotations);
+      console.log(`[LivecodeAE] Comentario agregado en ${roomId} por ${annotation.authorName} en ${annotation.fileName}:L${annotation.line}`);
     }
   });
 
-  socket.on('whiteboard-clear', (data) => {
-    const { roomId } = data;
+  socket.on('resolve-annotation', (data) => {
+    const { roomId, id } = data;
     const room = rooms.get(roomId);
-    if (room) {
-      room.whiteboardStrokes = [];
-      io.to(roomId).emit('whiteboard-clear');
+    if (room && room.annotations) {
+      const ann = room.annotations.find(a => a.id === id);
+      if (ann) {
+        ann.resolved = !ann.resolved;
+        io.to(roomId).emit('annotations-updated', room.annotations);
+      }
+    }
+  });
+
+  socket.on('delete-annotation', (data) => {
+    const { roomId, id } = data;
+    const room = rooms.get(roomId);
+    if (room && room.annotations) {
+      room.annotations = room.annotations.filter(a => a.id !== id);
+      io.to(roomId).emit('annotations-updated', room.annotations);
+    }
+  });
+
+  // Focus Mode (Presentador guía a todos) (Feature 1)
+  socket.on('set-focus-mode', (data) => {
+    const { roomId, enabled } = data;
+    const room = rooms.get(roomId);
+    if (room && room.hostId === userId) {
+      room.focusMode = !!enabled;
+      io.to(roomId).emit('focus-mode-updated', { enabled: room.focusMode, hostId: userId });
+      console.log(`[LivecodeAE] Focus mode en ${roomId}: ${room.focusMode}`);
     }
   });
 

@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>LivecodeAE — Canal de Voz</title>
+  <style>
+    :root {
+      --bg-dark: #09090b;
+      --bg-card: #18181b;
+      --accent-green: #22c55e;
+      --accent-cyan: #38bdf8;
+      --accent-red: #ef4444;
+      --text: #f4f4f5;
+      --muted: #a1a1aa;
+      --border: rgba(255, 255, 255, 0.1);
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: var(--bg-dark);
+      color: var(--text);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      padding: 16px;
+      user-select: none;
+    }
+    .card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 20px;
+      width: 100%;
+      max-width: 320px;
+      text-align: center;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+    }
+    .title-neon {
+      font-size: 15px;
+      font-weight: 800;
+      background: linear-gradient(90deg, #22c55e, #38bdf8);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      margin-bottom: 4px;
+    }
+    .room-tag {
+      font-size: 11px;
+      color: var(--muted);
+      font-family: monospace;
+      margin-bottom: 16px;
+    }
+    .avatar-ring {
+      width: 72px;
+      height: 72px;
+      border-radius: 50%;
+      margin: 0 auto 16px auto;
+      border: 3px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 28px;
+      transition: all 0.2s ease;
+      background: #121215;
+    }
+    .avatar-ring.speaking {
+      border-color: var(--accent-green);
+      box-shadow: 0 0 20px rgba(34, 197, 94, 0.7);
+      transform: scale(1.05);
+    }
+    .status-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--accent-green);
+      background: rgba(34, 197, 94, 0.1);
+      padding: 4px 10px;
+      border-radius: 20px;
+      margin-bottom: 16px;
+    }
+    .btn-mute {
+      width: 100%;
+      padding: 12px;
+      border: none;
+      border-radius: 10px;
+      font-size: 13px;
+      font-weight: 700;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      transition: all 0.2s;
+      background: #27272a;
+      color: #fff;
+    }
+    .btn-mute.muted {
+      background: var(--accent-red);
+    }
+    .btn-mute:hover {
+      opacity: 0.9;
+    }
+    .participants {
+      margin-top: 16px;
+      border-top: 1px solid var(--border);
+      padding-top: 12px;
+      text-align: left;
+    }
+    .participants-title {
+      font-size: 10px;
+      color: var(--muted);
+      font-weight: 700;
+      margin-bottom: 8px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    .user-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid var(--border);
+      padding: 3px 8px;
+      border-radius: 12px;
+      font-size: 11px;
+      margin: 2px 4px 2px 0;
+      transition: all 0.2s;
+    }
+    .user-pill.speaking {
+      border-color: var(--accent-green);
+      color: var(--accent-green);
+      box-shadow: 0 0 8px rgba(34, 197, 94, 0.4);
+    }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="title-neon">🎙️ LivecodeAE Voice</div>
+    <div class="room-tag" id="roomTag">Conectando...</div>
+
+    <div class="avatar-ring" id="myAvatarRing">🎙️</div>
+
+    <div class="status-badge" id="statusBadge">
+      <span style="width:8px; height:8px; border-radius:50%; background:currentColor;"></span>
+      <span id="statusText">Conectando audio...</span>
+    </div>
+
+    <button class="btn-mute" id="btnMute" onclick="toggleMute()">
+      <span id="muteIcon">🎙️</span>
+      <span id="muteText">Micrófono Activo</span>
+    </button>
+
+    <div class="participants">
+      <div class="participants-title">En llamada de voz (<span id="voiceCount">0</span>)</div>
+      <div id="participantsList"></div>
+    </div>
+  </div>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script>
+    const params = new URLSearchParams(window.location.search);
+    const roomId = params.get('room') || 'DEFAULT';
+    const userName = params.get('name') || 'Dev';
+
+    document.getElementById('roomTag').innerText = 'SALA: ' + roomId + ' • ' + userName;
+
+    let socket = null;
+    let isMuted = false;
+    let localStream = null;
+    let audioInCtx = null;
+    let audioOutCtx = null;
+    let nextPlayTime = 0;
+
+    async function init() {
+      try {
+        localStream = await navigator.mediaDevices.getUserMedia({
+          audio: {
+            echoCancellation: true,
+            noiseSuppression: true,
+            autoGainControl: true
+          },
+          video: false
+        });
+
+        document.getElementById('statusText').innerText = 'En Vivo • 16 kHz VoIP';
+
+        socket = io({ transports: ['websocket', 'polling'] });
+
+        socket.on('connect', () => {
+          socket.emit('join-room', { roomId, name: userName });
+          socket.emit('voice-join', { roomId });
+        });
+
+        socket.on('voice-presence-updated', (users) => {
+          document.getElementById('voiceCount').innerText = users.length;
+          const list = document.getElementById('participantsList');
+          list.innerHTML = users.map(u => '<div class="user-pill" id="voice-pill-' + u.id + '"><span>🔊</span> ' + u.name + '</div>').join('');
+        });
+
+        socket.on('voice-audio-pcm', (data) => {
+          if (data.senderUserId !== socket.id) {
+            playRemoteAudio(data.senderUserId, data.pcm);
+          }
+        });
+
+        setupAudioRecording(localStream);
+      } catch (err) {
+        document.getElementById('statusBadge').style.color = 'var(--accent-red)';
+        document.getElementById('statusText').innerText = 'Micrófono no permitido';
+        alert('Por favor otorga permiso al micrófono en la ventana de tu navegador para usar el chat de voz.');
+      }
+    }
+
+    function setupAudioRecording(stream) {
+      const AudioCtx = window.AudioContext || window.webkitAudioContext;
+      audioInCtx = new AudioCtx({ sampleRate: 16000 });
+      const source = audioInCtx.createMediaStreamSource(stream);
+      const proc = audioInCtx.createScriptProcessor(2048, 1, 1);
+      source.connect(proc);
+      proc.connect(audioInCtx.destination);
+
+      proc.onaudioprocess = (e) => {
+        if (isMuted || !socket || !socket.connected) return;
+        const input = e.inputBuffer.getChannelData(0);
+
+        let sum = 0;
+        for (let i = 0; i < input.length; i++) sum += Math.abs(input[i]);
+        const avg = sum / input.length;
+
+        const ring = document.getElementById('myAvatarRing');
+        if (avg > 0.035) ring.classList.add('speaking');
+        else ring.classList.remove('speaking');
+
+        const int16 = new Int16Array(input.length);
+        for (let i = 0; i < input.length; i++) {
+          int16[i] = Math.max(-1, Math.min(1, input[i])) * 0x7FFF;
+        }
+        socket.emit('voice-audio-pcm', { roomId, pcm: int16.buffer });
+      };
+    }
+
+    function playRemoteAudio(senderId, pcmBuffer) {
+      try {
+        if (!audioOutCtx) {
+          const AudioCtx = window.AudioContext || window.webkitAudioContext;
+          audioOutCtx = new AudioCtx({ sampleRate: 16000 });
+        }
+        if (audioOutCtx.state === 'suspended') audioOutCtx.resume();
+
+        const int16 = new Int16Array(pcmBuffer);
+        const float32 = new Float32Array(int16.length);
+        let sum = 0;
+        for (let i = 0; i < int16.length; i++) {
+          const v = int16[i] / 0x7FFF;
+          float32[i] = v;
+          sum += Math.abs(v);
+        }
+
+        const avg = sum / int16.length;
+        const pill = document.getElementById('voice-pill-' + senderId);
+        if (pill) {
+          if (avg > 0.035) pill.classList.add('speaking');
+          else pill.classList.remove('speaking');
+        }
+
+        const buf = audioOutCtx.createBuffer(1, float32.length, 16000);
+        buf.copyToChannel(float32, 0);
+
+        const src = audioOutCtx.createBufferSource();
+        src.buffer = buf;
+        src.connect(audioOutCtx.destination);
+
+        const now = audioOutCtx.currentTime;
+        if (nextPlayTime < now) nextPlayTime = now;
+        src.start(nextPlayTime);
+        nextPlayTime += buf.duration;
+      } catch (e) {}
+    }
+
+    function toggleMute() {
+      isMuted = !isMuted;
+      const btn = document.getElementById('btnMute');
+      const ring = document.getElementById('myAvatarRing');
+      if (isMuted) {
+        btn.classList.add('muted');
+        document.getElementById('muteIcon').innerText = '🔇';
+        document.getElementById('muteText').innerText = 'Micrófono Silenciado';
+        ring.classList.remove('speaking');
+      } else {
+        btn.classList.remove('muted');
+        document.getElementById('muteIcon').innerText = '🎙️';
+        document.getElementById('muteText').innerText = 'Micrófono Activo';
+      }
+    }
+
+    window.addEventListener('beforeunload', () => {
+      if (socket) socket.emit('voice-leave', { roomId });
+    });
+
+    init();
+  </script>
+</body>
+</html>
