@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>LivecodeAE Audio Bridge</title>
+  <title>LivecodeAE Audio Bridge (48 kHz Studio)</title>
   <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
   <style>
     :root {
@@ -136,7 +136,7 @@
   <div class="widget-box">
     <div class="header">
       <div class="badge-live">
-        <span class="dot"></span> AUDIO ACTIVO
+        <span class="dot"></span> 48 kHz HD
       </div>
       <span class="room-title" id="roomLabel"></span>
     </div>
@@ -146,14 +146,14 @@
     </div>
 
     <div class="user-name" id="userNameLabel">Conectando...</div>
-    <div class="status-note" id="statusNote">Iniciando micrófono...</div>
+    <div class="status-note" id="statusNote">Iniciando audio de alta fidelidad...</div>
 
     <button class="btn-toggle-mic unmuted" id="btnMic" onclick="toggleMute()">
-      <span id="micIcon">🎙️</span> <span id="micText">Micrófono Activo</span>
+      <span id="micIcon">🎙️</span> <span id="micText">Micrófono HD Activo</span>
     </button>
 
     <div class="tip-footer">
-      💡 Puedes minimizar esta ventanita. Tu espacio de voz con burbujas y emojis sigue activo en tu VS Code.
+      💡 Audio en segundo plano sincronizado con LivecodeAE Spaces dentro de VS Code.
     </div>
   </div>
 
@@ -172,14 +172,23 @@
     let audioOutCtx = null;
     let isMuted = false;
 
+    // Alta Fidelidad: 48 kHz Studio Quality
+    const SAMPLE_RATE = 48000;
+
     async function init() {
       try {
         localStream = await navigator.mediaDevices.getUserMedia({
-          audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
+          audio: {
+            echoCancellation: true,
+            noiseSuppression: true,
+            autoGainControl: true,
+            sampleRate: SAMPLE_RATE,
+            channelCount: 1
+          },
           video: false
         });
 
-        document.getElementById('statusNote').innerText = '16 kHz VoIP • Sin eco';
+        document.getElementById('statusNote').innerText = '48 kHz HD • Audio Estudio sin eco';
 
         socket = io({ transports: ['websocket', 'polling'] });
 
@@ -202,14 +211,14 @@
       } catch (err) {
         document.getElementById('statusNote').innerText = 'Micrófono no autorizado';
         document.getElementById('statusNote').style.color = 'var(--accent-rose)';
-        alert('Por favor otorga permiso al micrófono: ' + err.message);
       }
     }
 
     function setupRecording(stream) {
       const AudioCtx = window.AudioContext || window.webkitAudioContext;
-      audioInCtx = new AudioCtx({ sampleRate: 16000 });
+      audioInCtx = new AudioCtx({ sampleRate: SAMPLE_RATE });
       const source = audioInCtx.createMediaStreamSource(stream);
+      // Tamaño de buffer 2048 a 48 kHz = 42ms de latencia ultra baja
       const proc = audioInCtx.createScriptProcessor(2048, 1, 1);
       source.connect(proc);
       proc.connect(audioInCtx.destination);
@@ -219,11 +228,11 @@
         const input = e.inputBuffer.getChannelData(0);
 
         let sum = 0;
-        for (let i = 0; i < input.length; i++) sum += Math.abs(input[i]);
-        const avg = sum / input.length;
+        for (let i = 0; i < input.length; i++) sum += input[i] * input[i];
+        const rms = Math.sqrt(sum / input.length);
 
         const wrap = document.getElementById('avatarWrapper');
-        if (avg > 0.035) {
+        if (rms > 0.02) {
           wrap.classList.add('speaking');
           socket.emit('voice-speaking', { roomId, speaking: true });
         } else {
@@ -242,11 +251,11 @@
       try {
         if (!audioOutCtx) {
           const AudioCtx = window.AudioContext || window.webkitAudioContext;
-          audioOutCtx = new AudioCtx({ sampleRate: 16000 });
+          audioOutCtx = new AudioCtx({ sampleRate: SAMPLE_RATE });
         }
         if (audioOutCtx.state === 'suspended') audioOutCtx.resume();
 
-        const buffer = audioOutCtx.createBuffer(1, pcmArray.length, 16000);
+        const buffer = audioOutCtx.createBuffer(1, pcmArray.length, SAMPLE_RATE);
         const channel = buffer.getChannelData(0);
         for (let i = 0; i < pcmArray.length; i++) {
           channel[i] = pcmArray[i] / 32767;
@@ -273,7 +282,7 @@
       } else {
         btn.className = 'btn-toggle-mic unmuted';
         icon.innerText = '🎙️';
-        text.innerText = 'Micrófono Activo';
+        text.innerText = 'Micrófono HD Activo';
       }
     }
 
