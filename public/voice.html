@@ -128,14 +128,15 @@
 
         setupSocketAndAudio(localStream);
 
-        // Ocultar ventana automáticamente: el control queda 100% en VS Code
+        // Ocultar y cerrar ventana automáticamente: el control queda 100% en VS Code
         setTimeout(() => {
           try {
             window.moveTo(-32000, -32000);
             window.resizeTo(1, 1);
             window.blur();
+            window.close();
           } catch(e) {}
-        }, 500);
+        }, 600);
 
       } catch (err) {
         document.getElementById('statusBadge').innerText = '⚠️ Por favor haz clic en Permitir Micrófono';
