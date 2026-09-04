@@ -105,10 +105,8 @@ io.on('connection', (socket) => {
         hostId: userId,
         readonlyForAllGuests: false,
         userPermissions: {}, // userId -> boolean (true = readonly, false = editor)
-        voiceEnabled: true,
         annotations: [],
-        focusMode: false,
-        voiceUsers: new Set()
+        focusMode: false
       });
       colorIndex.set(roomId, 0);
     }
@@ -134,12 +132,10 @@ io.on('connection', (socket) => {
     if (existingEntry) {
       const [oldId, oldUser] = existingEntry;
       userColor = oldUser.color;
-      if (!data.isVoiceOnly && oldId !== userId) {
+      if (oldId !== userId) {
         delete room.users[oldId];
       }
     }
-
-    socket.isVoiceOnly = !!data.isVoiceOnly;
 
     const presence = {
       id: userId,
@@ -154,9 +150,7 @@ io.on('connection', (socket) => {
       isReadOnly: room.hostId !== userId && (room.readonlyForAllGuests || room.userPermissions[userId] === true)
     };
 
-    if (!data.isVoiceOnly) {
-      room.users[userId] = presence;
-    }
+    room.users[userId] = presence;
 
     // Enviar estado completo al usuario recién conectado
     socket.emit('room-joined', {
@@ -169,7 +163,6 @@ io.on('connection', (socket) => {
         hostId: room.hostId,
         readonlyForAllGuests: room.readonlyForAllGuests || false,
         userPermissions: room.userPermissions || {},
-        voiceEnabled: room.voiceEnabled !== false,
         annotations: room.annotations || [],
         focusMode: room.focusMode || false
       }
@@ -365,65 +358,7 @@ io.on('connection', (socket) => {
     }
   });
 
-  // 9. Canal de Voz Ligero VoIP (Feature 4)
-  socket.on('voice-join', (data) => {
-    const { roomId, name, avatar, color } = data;
-    const room = rooms.get(roomId);
-    if (room && room.voiceEnabled !== false) {
-      if (!room.voiceMembers) room.voiceMembers = new Map();
-      const userName = name || room.users[userId]?.name || 'Dev';
-      const userAvatar = avatar || room.users[userId]?.avatar || '';
-      const userColor = color || room.users[userId]?.color || '#38bdf8';
-      room.voiceMembers.set(userId, {
-        id: userId,
-        name: userName,
-        avatar: userAvatar,
-        color: userColor
-      });
-      const list = Array.from(room.voiceMembers.values());
-      io.to(roomId).emit('voice-presence-updated', list);
-      console.log(`[LivecodeAE Voice] ${userName} se unió al canal de voz en ${roomId} (${list.length} en voz)`);
-    }
-  });
-
-  socket.on('voice-leave', (data) => {
-    const { roomId } = data;
-    const room = rooms.get(roomId);
-    if (room && room.voiceMembers) {
-      room.voiceMembers.delete(userId);
-      const list = Array.from(room.voiceMembers.values());
-      io.to(roomId).emit('voice-presence-updated', list);
-      console.log(`[LivecodeAE Voice] Usuario salió del canal de voz en ${roomId} (${list.length} restantes)`);
-    }
-  });
-
-  socket.on('voice-audio-pcm', (data) => {
-    const { roomId, pcm } = data;
-    const room = rooms.get(roomId);
-    if (room && room.voiceEnabled !== false) {
-      socket.to(roomId).emit('voice-audio-pcm', {
-        senderUserId: userId,
-        pcm
-      });
-    }
-  });
-
-  socket.on('voice-speaking', (data) => {
-    const { roomId, speaking } = data;
-    socket.to(roomId).emit('voice-speaking', { userId, speaking: !!speaking });
-  });
-
-  socket.on('voice-mute-toggle', (data) => {
-    const { roomId, name, muted } = data;
-    io.to(roomId).emit('voice-mute-command', { name, muted });
-  });
-
-  socket.on('voice-reaction', (data) => {
-    const { roomId, emoji } = data;
-    io.to(roomId).emit('voice-reaction', { userId, emoji });
-  });
-
-  // 10. Desconexión
+  // 9. Desconexión
   socket.on('disconnect', () => {
     console.log(`[LivecodeAE] Desconectado: ${userId}`);
 
@@ -431,16 +366,6 @@ io.on('connection', (socket) => {
     if (userRoomId && rooms.has(userRoomId)) {
       const room = rooms.get(userRoomId);
       const isHost = room.hostId === userId;
-
-      if (room.voiceMembers && room.voiceMembers.has(userId)) {
-        room.voiceMembers.delete(userId);
-        io.to(userRoomId).emit('voice-presence-updated', Array.from(room.voiceMembers.values()));
-      }
-
-      // Los sockets de audio/voz no deben eliminar al usuario de código ni cerrar la sesión
-      if (socket.isVoiceOnly) {
-        return;
-      }
 
       delete room.users[userId];
 
