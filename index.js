@@ -106,6 +106,7 @@ io.on('connection', (socket) => {
         readonlyForAllGuests: false,
         userPermissions: {}, // userId -> boolean (true = readonly, false = editor)
         annotations: [],
+        messages: [],
         focusMode: false
       });
       colorIndex.set(roomId, 0);
@@ -164,6 +165,7 @@ io.on('connection', (socket) => {
         readonlyForAllGuests: room.readonlyForAllGuests || false,
         userPermissions: room.userPermissions || {},
         annotations: room.annotations || [],
+        messages: room.messages || [],
         focusMode: room.focusMode || false
       }
     });
@@ -281,9 +283,35 @@ io.on('connection', (socket) => {
         userAvatar: user.avatar,
         userColor: user.color,
         text,
-        timestamp: Date.now()
+        timestamp: Date.now(),
+        reactions: {}
       };
+      if (!room.messages) room.messages = [];
+      room.messages.push(msg);
+      if (room.messages.length > 100) room.messages.shift();
       io.to(roomId).emit('chat-message-received', msg);
+    }
+  });
+
+  socket.on('chat-reaction', (data) => {
+    const { roomId, messageId, emoji } = data;
+    const room = rooms.get(roomId);
+    if (room && room.messages) {
+      const msg = room.messages.find(m => m.id === messageId);
+      if (msg) {
+        if (!msg.reactions) msg.reactions = {};
+        if (!msg.reactions[emoji]) msg.reactions[emoji] = [];
+        const user = room.users[userId];
+        const userName = user ? user.name : 'Dev';
+        const existsIdx = msg.reactions[emoji].indexOf(userName);
+        if (existsIdx >= 0) {
+          msg.reactions[emoji].splice(existsIdx, 1);
+          if (msg.reactions[emoji].length === 0) delete msg.reactions[emoji];
+        } else {
+          msg.reactions[emoji].push(userName);
+        }
+        io.to(roomId).emit('chat-reaction-updated', { messageId, reactions: msg.reactions });
+      }
     }
   });
 
@@ -344,6 +372,20 @@ io.on('connection', (socket) => {
     if (room && room.annotations) {
       room.annotations = room.annotations.filter(a => a.id !== id);
       io.to(roomId).emit('annotations-updated', room.annotations);
+    }
+  });
+
+  socket.on('reply-annotation', (data) => {
+    const { roomId, annotationId, reply } = data;
+    const room = rooms.get(roomId);
+    if (room && room.annotations && reply) {
+      const ann = room.annotations.find(a => a.id === annotationId);
+      if (ann) {
+        if (!ann.replies) ann.replies = [];
+        ann.replies.push(reply);
+        io.to(roomId).emit('annotations-updated', room.annotations);
+        console.log(`[LivecodeAE] Respuesta agregada a anotación ${annotationId} por ${reply.authorName}`);
+      }
     }
   });
 
