@@ -134,10 +134,12 @@ io.on('connection', (socket) => {
     if (existingEntry) {
       const [oldId, oldUser] = existingEntry;
       userColor = oldUser.color;
-      if (oldId !== userId) {
+      if (!data.isVoiceOnly && oldId !== userId) {
         delete room.users[oldId];
       }
     }
+
+    socket.isVoiceOnly = !!data.isVoiceOnly;
 
     const presence = {
       id: userId,
@@ -435,6 +437,12 @@ io.on('connection', (socket) => {
         io.to(userRoomId).emit('voice-presence-updated', Array.from(room.voiceMembers.values()));
       }
 
+      // Los sockets de audio/voz no deben eliminar al usuario de código ni cerrar la sesión
+      if (socket.isVoiceOnly) {
+        return;
+      }
+
+      const isHost = room.hostId === userId;
       delete room.users[userId];
 
       if (isHost || Object.keys(room.users).length === 0) {
