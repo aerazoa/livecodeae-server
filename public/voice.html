@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Permiso de Micrófono — LivecodeAE Spaces</title>
+  <title>Activar Micrófono — LivecodeAE Spaces</title>
   <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
   <style>
     :root {
@@ -14,7 +14,7 @@
       --accent-rose: #f43f5e;
       --text: #f4f4f5;
       --muted: #a1a1aa;
-      --border: rgba(255, 255, 255, 0.1);
+      --border: rgba(255, 255, 255, 0.12);
     }
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body {
@@ -27,29 +27,23 @@
       min-height: 100vh;
       padding: 16px;
       user-select: none;
-      overflow: hidden;
     }
-    .permission-card {
+    .card {
       background: var(--card);
       border: 1px solid var(--border);
       border-radius: 16px;
-      padding: 20px;
+      padding: 24px;
       width: 100%;
-      max-width: 320px;
+      max-width: 360px;
       text-align: center;
-      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.6);
+      box-shadow: 0 12px 36px rgba(0, 0, 0, 0.7);
     }
-    .icon-mic {
-      font-size: 38px;
-      margin-bottom: 10px;
-      animation: bounce 1.2s infinite;
-    }
-    @keyframes bounce {
-      0%, 100% { transform: translateY(0); }
-      50% { transform: translateY(-6px); }
+    .icon-box {
+      font-size: 42px;
+      margin-bottom: 12px;
     }
     .title {
-      font-size: 14px;
+      font-size: 16px;
       font-weight: 800;
       background: linear-gradient(90deg, #38bdf8, #22c55e);
       -webkit-background-clip: text;
@@ -57,44 +51,53 @@
       margin-bottom: 6px;
     }
     .desc {
-      font-size: 11px;
+      font-size: 12px;
       color: var(--muted);
-      line-height: 1.4;
-      margin-bottom: 16px;
+      line-height: 1.5;
+      margin-bottom: 20px;
     }
-    .status-badge {
-      background: rgba(56, 189, 248, 0.15);
-      border: 1px solid rgba(56, 189, 248, 0.3);
-      color: var(--accent-cyan);
-      font-size: 11px;
-      font-weight: 700;
-      padding: 8px 12px;
-      border-radius: 8px;
-    }
-    .btn-manual-allow {
+    .btn-activate {
       width: 100%;
       background: linear-gradient(90deg, #22c55e, #38bdf8);
       color: #000;
       border: none;
       font-weight: 800;
-      font-size: 12px;
-      padding: 10px;
-      border-radius: 8px;
+      font-size: 14px;
+      padding: 14px;
+      border-radius: 10px;
       cursor: pointer;
-      margin-top: 12px;
-      display: none;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      box-shadow: 0 4px 20px rgba(34, 197, 94, 0.35);
+      transition: transform 0.15s, opacity 0.15s;
+    }
+    .btn-activate:hover {
+      transform: scale(1.02);
+      opacity: 0.95;
+    }
+    .status-badge {
+      font-size: 11px;
+      color: var(--accent-cyan);
+      margin-top: 14px;
+      font-weight: 600;
     }
   </style>
 </head>
 <body>
-  <div class="permission-card">
-    <div class="icon-mic" id="micIcon">🎙️</div>
+  <div class="card">
+    <div class="icon-box" id="iconBox">🎙️</div>
     <div class="title">LivecodeAE Spaces</div>
-    <div class="desc">
-      Presiona <strong>"Permitir"</strong> cuando el navegador te lo solicite. Una vez dado el permiso, esta ventana desaparecerá automáticamente.
+    <div class="desc" id="descText">
+      Haz clic en el botón de abajo para activar tu micrófono. Una vez concedido, <strong>esta ventana se cerrará sola</strong> y hablarás directamente desde VS Code.
     </div>
-    <div class="status-badge" id="statusBadge">Esperando permiso del micrófono...</div>
-    <button class="btn-manual-allow" id="btnManual" onclick="initMic()">👉 Conceder Permiso Ahora</button>
+
+    <button class="btn-activate" id="btnAction" onclick="activateMicrophone()">
+      <span>🎙️</span> <span>Activar y Conceder Permiso</span>
+    </button>
+
+    <div class="status-badge" id="statusBadge">Esperando tu confirmación...</div>
   </div>
 
   <script>
@@ -108,7 +111,13 @@
     let isMuted = false;
     const SAMPLE_RATE = 48000;
 
-    async function initMic() {
+    async function activateMicrophone() {
+      const btn = document.getElementById('btnAction');
+      const badge = document.getElementById('statusBadge');
+      btn.disabled = true;
+      btn.style.opacity = '0.7';
+      badge.innerText = 'Solicitando acceso al micrófono...';
+
       try {
         localStream = await navigator.mediaDevices.getUserMedia({
           audio: {
@@ -121,27 +130,24 @@
           video: false
         });
 
-        document.getElementById('statusBadge').innerText = '✅ ¡Micrófono Autorizado! Ocultando ventana...';
-        document.getElementById('statusBadge').style.borderColor = 'rgba(34, 197, 94, 0.5)';
-        document.getElementById('statusBadge').style.color = 'var(--accent-green)';
-        document.getElementById('micIcon').innerText = '🟢';
+        document.getElementById('iconBox').innerText = '🟢';
+        badge.innerText = '✅ ¡Micrófono HD Concedido! Cerrando ventana...';
+        badge.style.color = 'var(--accent-green)';
 
         setupSocketAndAudio(localStream);
 
-        // Ocultar y cerrar ventana automáticamente: el control queda 100% en VS Code
+        // Notificar y cerrar ventana automáticamente tras medio segundo
         setTimeout(() => {
           try {
-            window.moveTo(-32000, -32000);
-            window.resizeTo(1, 1);
-            window.blur();
             window.close();
           } catch(e) {}
         }, 600);
 
       } catch (err) {
-        document.getElementById('statusBadge').innerText = '⚠️ Por favor haz clic en Permitir Micrófono';
-        document.getElementById('statusBadge').style.color = 'var(--accent-rose)';
-        document.getElementById('btnManual').style.display = 'block';
+        btn.disabled = false;
+        btn.style.opacity = '1';
+        badge.innerText = '⚠️ Debes presionar "Permitir" en el aviso del navegador';
+        badge.style.color = 'var(--accent-rose)';
       }
     }
 
@@ -160,7 +166,6 @@
         });
       });
 
-      // Control remoto de mute desde VS Code
       socket.on('voice-mute-command', (data) => {
         if (data.name && data.name.trim().toLowerCase() === userName.trim().toLowerCase()) {
           isMuted = !!data.muted;
@@ -194,9 +199,14 @@
       };
     }
 
-    // Auto-iniciar la petición de permiso
-    window.addEventListener('DOMContentLoaded', initMic);
-    setTimeout(initMic, 200);
+    // Si el usuario ya había otorgado permiso en una sesión anterior, se conecta al cargar
+    if (navigator.permissions) {
+      navigator.permissions.query({ name: 'microphone' }).then(result => {
+        if (result.state === 'granted') {
+          activateMicrophone();
+        }
+      }).catch(() => {});
+    }
   </script>
 </body>
 </html>
