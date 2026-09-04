@@ -442,7 +442,6 @@ io.on('connection', (socket) => {
         return;
       }
 
-      const isHost = room.hostId === userId;
       delete room.users[userId];
 
       if (isHost || Object.keys(room.users).length === 0) {
